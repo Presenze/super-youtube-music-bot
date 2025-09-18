@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Telegram Support
+    url: https://t.me/yourgroup
+    about: Ottieni supporto dalla community Telegram
+  - name: 📧 Email Support
+    url: mailto:support@example.com
+    about: Contatta il supporto via email
+  - name: 📚 Documentation
+    url: https://github.com/yourusername/super-youtube-music-bot/wiki
+    about: Consulta la documentazione completa

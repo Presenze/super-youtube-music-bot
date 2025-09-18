@@ -1,0 +1,24 @@
+# Global code owners
+* @yourusername
+
+# Bot files
+bot_finale_perfetto.py @yourusername
+config.py @yourusername
+requirements.txt @yourusername
+
+# Documentation
+README.md @yourusername
+CONTRIBUTING.md @yourusername
+CHANGELOG.md @yourusername
+
+# GitHub configuration
+.github/ @yourusername
+
+# Scripts
+*.bat @yourusername
+*.sh @yourusername
+
+# Configuration files
+config_example.py @yourusername
+.gitignore @yourusername
+LICENSE @yourusername
