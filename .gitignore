@@ -133,7 +133,7 @@ downloads/
 data/
 *.log
 bot.log
-config.py
+# config.py - Now included for Render deployment
 .env
 *.mp3
 *.m4a

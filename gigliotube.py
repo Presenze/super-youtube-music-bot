@@ -16,7 +16,10 @@ from telegram.constants import ParseMode
 from telegram.error import Conflict, BadRequest
 import aiofiles
 import shutil
-from config import *
+try:
+    from config import *
+except ImportError:
+    from config_render import *
 
 # Set up logging
 logging.basicConfig(
