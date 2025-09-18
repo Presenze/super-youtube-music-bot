@@ -1,5 +1,5 @@
 python-telegram-bot==21.10
-yt-dlp==2024.12.13
+yt-dlp==2025.9.5
 python-dotenv==1.0.0
 aiofiles==23.2.1
 mutagen==1.47.0
