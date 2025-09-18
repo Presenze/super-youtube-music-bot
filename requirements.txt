@@ -1,6 +1,6 @@
 python-telegram-bot==21.10
 yt-dlp==2024.12.13
-python-dotenv==1.0.0
+python-dotenv==1.1.1
 aiofiles==23.2.1
 mutagen==1.47.0
 APScheduler==3.10.4
