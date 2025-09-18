@@ -63,7 +63,9 @@ def clean_text(text):
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
     """Crea callback data sicuro e corto"""
     if action == "download":
-        return f"dl_{user_id}_{format_type}_{quality}_{url_hash}"
+        # Usa solo i primi 8 caratteri dell'hash per rimanere sotto i 64 byte
+        short_hash = url_hash[:8] if url_hash else "00000000"
+        return f"dl_{user_id}_{format_type}_{quality}_{short_hash}"
     elif action == "stats":
         return f"st_{user_id}"
     elif action == "settings":
@@ -157,8 +159,17 @@ class SuperYouTubeDownloader:
         self.save_languages()
     
     def get_url_from_hash(self, url_hash):
-        """Ottiene URL dal hash"""
-        return self.url_cache.get(url_hash)
+        """Ottiene URL dal hash (gestisce hash corti e completi)"""
+        # Prima prova con l'hash esatto
+        if url_hash in self.url_cache:
+            return self.url_cache[url_hash]
+        
+        # Se non trovato, cerca un hash che inizia con quello fornito
+        for full_hash, url in self.url_cache.items():
+            if full_hash.startswith(url_hash):
+                return url
+        
+        return None
     
     def store_url_hash(self, url, url_hash):
         """Salva URL con hash"""
