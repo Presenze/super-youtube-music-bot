@@ -1,16 +1,12 @@
 services:
   - type: web
     name: gigliotube-bot
-    env: python
-    pythonVersion: 3.11.9
+    env: docker
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python gigliotube.py
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: PYTHON_VERSION
-        value: 3.10.0
     healthCheckPath: /
     autoDeploy: true
     branch: main

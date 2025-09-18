@@ -5,3 +5,4 @@ aiofiles==23.2.1
 mutagen==1.47.0
 APScheduler==3.10.4
 httpx==0.25.2
+asyncio
