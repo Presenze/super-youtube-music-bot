@@ -1,7 +1,12 @@
 import asyncio
 import os
 import logging
-import yt_dlp
+try:
+    import yt_dlp
+    HAS_YT_DLP = True
+except ImportError:
+    HAS_YT_DLP = False
+    print("Warning: yt-dlp not available, download functionality will be limited")
 import json
 import time
 import re
@@ -14,8 +19,16 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 from telegram.error import Conflict, BadRequest
-import aiofiles
+# Try to import optional dependencies
+try:
+    import aiofiles
+    HAS_AIOFILES = True
+except ImportError:
+    HAS_AIOFILES = False
+    print("Warning: aiofiles not available, using standard file operations")
+
 import shutil
+
 try:
     from config import *
 except ImportError:
