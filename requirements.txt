@@ -1,8 +1,7 @@
-python-telegram-bot==21.10
-yt-dlp==2024.12.13
-python-dotenv==1.0.0
-aiofiles==23.2.1
-mutagen==1.47.0
-APScheduler==3.10.4
-httpx==0.25.2
-asyncio
+python-telegram-bot>=20.0,<22.0
+yt-dlp>=2024.1.0
+python-dotenv>=1.0.0
+aiofiles>=23.0.0
+mutagen>=1.47.0
+APScheduler>=3.10.0
+httpx>=0.25.0
