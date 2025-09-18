@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: gigliotube-bot
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python gigliotube.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.10.0
+    healthCheckPath: /
+    autoDeploy: true
+    branch: main
+    repo: https://github.com/Presenze/super-youtube-music-bot
