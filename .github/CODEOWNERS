@@ -1,24 +1,24 @@
 # Global code owners
-* @yourusername
+* @domenicogigliotti
 
 # Bot files
-bot_finale_perfetto.py @yourusername
-config.py @yourusername
-requirements.txt @yourusername
+bot_finale_perfetto.py @domenicogigliotti
+config.py @domenicogigliotti
+requirements.txt @domenicogigliotti
 
 # Documentation
-README.md @yourusername
-CONTRIBUTING.md @yourusername
-CHANGELOG.md @yourusername
+README.md @domenicogigliotti
+CONTRIBUTING.md @domenicogigliotti
+CHANGELOG.md @domenicogigliotti
 
 # GitHub configuration
-.github/ @yourusername
+.github/ @domenicogigliotti
 
 # Scripts
-*.bat @yourusername
-*.sh @yourusername
+*.bat @domenicogigliotti
+*.sh @domenicogigliotti
 
 # Configuration files
-config_example.py @yourusername
-.gitignore @yourusername
-LICENSE @yourusername
+config_example.py @domenicogigliotti
+.gitignore @domenicogigliotti
+LICENSE @domenicogigliotti

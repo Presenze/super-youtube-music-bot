@@ -19,8 +19,8 @@
 Dopo aver creato il repository su GitHub, esegui questi comandi:
 
 ```bash
-# Aggiungi il remote origin (sostituisci YOUR_USERNAME con il tuo username GitHub)
-git remote add origin https://github.com/YOUR_USERNAME/super-youtube-music-bot.git
+# Aggiungi il remote origin
+git remote add origin https://github.com/domenicogigliotti/super-youtube-music-bot.git
 
 # Rinomina il branch principale in main (se necessario)
 git branch -M main

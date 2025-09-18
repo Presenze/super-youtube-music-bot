@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://telegram.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Downloads](https://img.shields.io/badge/Downloads-1000+-orange.svg)](https://github.com/yourusername/super-youtube-music-bot)
+[![Downloads](https://img.shields.io/badge/Downloads-1000+-orange.svg)](https://github.com/domenicogigliotti/super-youtube-music-bot)
 
 > **Il downloader audio YouTube più VELOCE e POTENTE mai creato!**
 
@@ -326,7 +326,7 @@ Se ti piace questo progetto, lascia una stella ⭐ su GitHub!
 
 ---
 
-**Fatto con ❤️ per gli amanti della musica ovunque!**
+**Fatto con ❤️ da Domenico Gigliotti per gli amanti della musica ovunque!**
 
 *Il Super YouTube Music Bot Premium - Dove la Musica Incontra la Tecnologia* 🎧🚀🇮🇹
 
