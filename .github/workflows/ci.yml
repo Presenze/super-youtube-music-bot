@@ -63,7 +63,7 @@ jobs:
         bandit -r . -f json -o bandit-report.json || true
     
     - name: 📋 Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: bandit-report.json
@@ -92,7 +92,7 @@ jobs:
         python -m build
     
     - name: 📋 Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-package
         path: dist/
