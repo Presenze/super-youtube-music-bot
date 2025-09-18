@@ -42,7 +42,7 @@ jobs:
     
     - name: 📊 Check bot syntax
       run: |
-        python -m py_compile bot_finale_perfetto.py
+        python -m py_compile gigliotube.py
         echo "✅ Bot syntax check passed!"
 
   security:

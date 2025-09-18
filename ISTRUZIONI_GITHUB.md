@@ -10,7 +10,7 @@ Il tuo repository è ora **completamente configurato** e pronto per essere caric
 
 ```
 super-youtube-music-bot/
-├── 🎧 bot_finale_perfetto.py          # Bot principale FUNZIONANTE
+├── 🎧 gigliotube.py          # Bot principale FUNZIONANTE
 ├── ⚙️ config.py                       # Configurazione (con il tuo token)
 ├── 📋 requirements.txt                # Dipendenze Python
 ├── 🚀 run.bat                         # Script di avvio Windows
@@ -37,7 +37,7 @@ super-youtube-music-bot/
 
 ## 🎯 File Principali
 
-### 🎧 **bot_finale_perfetto.py** - IL BOT PRINCIPALE
+### 🎧 **gigliotube.py** - IL BOT PRINCIPALE
 - ✅ **FUNZIONANTE AL 100%**
 - ✅ Tutti gli errori risolti
 - ✅ Interfaccia italiana completa
@@ -93,7 +93,7 @@ git push -u origin main
 ## 🎉 **REPOSITORY COMPLETATO!**
 
 ### ✅ **Cosa è stato fatto:**
-1. ✅ **Bot funzionante** - `bot_finale_perfetto.py` pronto all'uso
+1. ✅ **Bot funzionante** - `gigliotube.py` pronto all'uso
 2. ✅ **Repository pulito** - Rimossi tutti i file non necessari
 3. ✅ **Autore aggiornato** - Tutti i file con "Domenico Gigliotti"
 4. ✅ **Configurazione GitHub** - Template, CI/CD, documentazione

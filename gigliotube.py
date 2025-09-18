@@ -864,7 +864,7 @@ def main():
     application.job_queue.run_repeating(cleanup_old_files_sync, interval=3600, first=10)
     
     # Esegui il bot
-    logger.info("Starting Super YouTube Music Download Bot...")
+    logger.info("Starting GiglioTube - Super YouTube Music Download Bot...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':

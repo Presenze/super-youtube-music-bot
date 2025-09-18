@@ -216,10 +216,10 @@ jobs:
 - Pulsanti colorati e tema bellissimo
 
 ### 🚀 Come Iniziare
-1. Scarica il file `bot_finale_perfetto.py`
+1. Scarica il file `gigliotube.py`
 2. Installa le dipendenze: `pip install -r requirements.txt`
 3. Configura il token in `config.py`
-4. Avvia: `python bot_finale_perfetto.py`
+4. Avvia: `python gigliotube.py`
 
 ### 📋 Requisiti
 - Python 3.8+

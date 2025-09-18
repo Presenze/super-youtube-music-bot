@@ -1,11 +1,11 @@
-# 🎧✨ Super YouTube Music Bot Premium ✨🎧
+# 🎧✨ GiglioTube - Super YouTube Music Bot  ✨🎧
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://telegram.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Downloads](https://img.shields.io/badge/Downloads-1000+-orange.svg)](https://github.com/domenicogigliotti/super-youtube-music-bot)
 
-> **Il downloader audio YouTube più VELOCE e POTENTE mai creato!**
+> **GiglioTube - Il downloader audio YouTube più VELOCE e POTENTE mai creato!**
 
 ## 🚀 Caratteristiche Premium
 
@@ -96,12 +96,12 @@ BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 run_bot_finale_perfetto.bat
 
 # Oppure manualmente:
-python bot_finale_perfetto.py
+python gigliotube.py
 ```
 
 ### Linux/Mac
 ```bash
-python bot_finale_perfetto.py
+python gigliotube.py
 ```
 
 ## 📱 Utilizzo

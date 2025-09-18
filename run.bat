@@ -1,9 +1,9 @@
 @echo off
 echo ========================================
-echo    SUPER YOUTUBE MUSIC BOT FINALE
+echo    GIGLIOTUBE - SUPER YOUTUBE MUSIC BOT
 echo ========================================
 echo.
-echo Avvio del bot YouTube FINALE e PERFETTO...
+echo Avvio di GiglioTube - Super YouTube Music Bot Premium...
 echo.
 
 echo Controllo dipendenze...
@@ -68,6 +68,6 @@ echo - ANTI-BLOCCO YOUTUBE
 echo - YT-DLP AGGIORNATO
 echo.
 
-echo Avvio Super YouTube Music Bot Premium...
-python bot_finale_perfetto.py
+echo Avvio GiglioTube - Super YouTube Music Bot Premium...
+python gigliotube.py
 pause
