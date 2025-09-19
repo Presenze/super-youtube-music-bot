@@ -66,18 +66,22 @@ def clean_text(text):
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
     """Crea callback data sicuro e corto (max 64 byte)"""
     if action == "download":
-        # Usa solo 1 carattere dell'hash per rimanere sotto i 64 byte
-        short_hash = url_hash[:1] if url_hash else "0"
+        # Usa solo i primi 2 caratteri dell'hash per rimanere sotto i 64 byte
+        short_hash = url_hash[:2] if url_hash else "00"
         # Abbrevia format_type e quality
         fmt_short = format_type[:2] if format_type else "mp"
         qual_short = quality[:2] if quality else "32"
-        callback_data = f"dl_{user_id}_{fmt_short}_{qual_short}_{short_hash}"
+        # Usa solo le ultime 6 cifre dell'user_id per ridurre la lunghezza
+        user_short = str(user_id)[-6:] if len(str(user_id)) > 6 else str(user_id)
+        callback_data = f"dl_{user_short}_{fmt_short}_{qual_short}_{short_hash}"
         
         # Debug: controlla la lunghezza
         if len(callback_data) > 64:
             print(f"WARNING: Callback data too long: {len(callback_data)} bytes - {callback_data}")
-            # Fallback: usa solo user_id e hash
-            callback_data = f"dl_{user_id}_{short_hash}"
+            # Fallback: usa solo 1 carattere dell'hash e 4 cifre user_id
+            short_hash = url_hash[:1] if url_hash else "0"
+            user_short = str(user_id)[-4:] if len(str(user_id)) > 4 else str(user_id)
+            callback_data = f"dl_{user_short}_{fmt_short}_{qual_short}_{short_hash}"
         
         return callback_data
     elif action == "stats":
@@ -96,31 +100,36 @@ def parse_callback_data(data):
     if len(parts) < 2:
         return None
     
-    if parts[0] == "dl":
-        if len(parts) >= 5:
-            # Formato completo: dl_userid_format_quality_hash
-            format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
-            quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
-            
-            format_type = format_map.get(parts[2], parts[2])
-            quality = quality_map.get(parts[3], parts[3])
-            
-            return {
-                "action": "download",
-                "user_id": int(parts[1]),
-                "format": format_type,
-                "quality": quality,
-                "url_hash": parts[4]
-            }
-        elif len(parts) >= 3:
-            # Formato ridotto: dl_userid_hash
-            return {
-                "action": "download",
-                "user_id": int(parts[1]),
-                "format": "mp3",  # Default
-                "quality": "320k",  # Default
-                "url_hash": parts[2]
-            }
+    if parts[0] == "dl" and len(parts) >= 5:
+        # Espandi le abbreviazioni
+        format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
+        quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
+        
+        format_type = format_map.get(parts[2], parts[2])
+        quality = quality_map.get(parts[3], parts[3])
+        
+        # Gestisci user_id abbreviati - cerca nell'url_cache per trovare l'user_id completo
+        user_id_short = parts[1]
+        full_user_id = None
+        
+        # Cerca nell'url_cache per trovare l'user_id completo che termina con questo suffisso
+        for cached_hash, url in downloader.url_cache.items():
+            if cached_hash.endswith(parts[4]):  # Se l'hash corrisponde
+                # Estrai user_id dal contesto (questo è un workaround)
+                # In pratica, useremo l'user_id dal contesto della callback query
+                break
+        
+        # Se non troviamo l'user_id completo, usa quello abbreviato
+        # Il vero user_id verrà preso dal contesto della callback query
+        user_id = int(user_id_short) if user_id_short.isdigit() else 0
+        
+        return {
+            "action": "download",
+            "user_id": user_id,
+            "format": format_type,
+            "quality": quality,
+            "url_hash": parts[4]
+        }
     elif parts[0] == "st":
         return {"action": "stats", "user_id": int(parts[1])}
     elif parts[0] == "se":
@@ -379,7 +388,7 @@ class SuperYouTubeDownloader:
                 
                 # Se il video non è disponibile, non provare altre configurazioni
                 if "Video unavailable" in error_msg or "not available" in error_msg:
-                    logger.error(f"Video not available: {e}")
+                    logger.error(f"Video unavailable: {error_msg}")
                     return None
                 
                 if i == len(configs) - 1:  # Ultima configurazione
@@ -514,7 +523,14 @@ class SuperYouTubeDownloader:
                     download_success = True
                     break
                 except Exception as e:
+                    error_msg = str(e)
                     logger.warning(f"Download config {i+1} failed: {e}")
+                    
+                    # Se il video non è disponibile, non provare altre configurazioni
+                    if "Video unavailable" in error_msg or "not available" in error_msg:
+                        logger.error(f"Video unavailable: {error_msg}")
+                        return None, "Video non disponibile. Potrebbe essere stato rimosso o reso privato." if self.get_user_language(user_id) == 'it' else "Video unavailable. It may have been removed or made private."
+                    
                     if i == len(configs) - 1:  # Ultima configurazione
                         logger.error(f"All download configs failed: {e}")
                         return None, f"Download failed: {str(e)}" if self.get_user_language(user_id) == 'en' else f"Download fallito: {str(e)}"
@@ -1125,14 +1141,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         quality = parsed_data["quality"]
         url_hash = parsed_data["url_hash"]
         
+        # Usa l'user_id dal contesto della callback query invece che dal callback data
+        actual_user_id = query.from_user.id
+        
         url = downloader.get_url_from_hash(url_hash)
         if not url:
             await query.edit_message_text("❌ URL not found. Please try again.")
             return
         
-        await query.edit_message_text(get_text(user_id, 'downloading', format=format_type.upper(), quality=quality))
+        await query.edit_message_text(get_text(actual_user_id, 'downloading', format=format_type.upper(), quality=quality))
         
-        file_path, result = await downloader.download_audio(url, user_id, format_type, quality)
+        file_path, result = await downloader.download_audio(url, actual_user_id, format_type, quality)
         
         if file_path and os.path.exists(file_path):
             with open(file_path, 'rb') as audio_file:
