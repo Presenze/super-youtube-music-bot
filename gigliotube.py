@@ -312,10 +312,86 @@ class SuperYouTubeDownloader:
         logger.info(f"Stored URL in cache: {url_hash} -> {url}")
     
     async def search_youtube(self, query, max_results=10):
-        """Cerca video su YouTube - VERSIONE ULTRA-POTENTE"""
+        """Cerca video su YouTube - VERSIONE ULTRA-POTENTE CON FALLBACK"""
         if not query or len(query.strip()) < 2:
             return []
         
+        # Prima prova con un metodo alternativo più semplice
+        try:
+            return await self._search_youtube_simple(query, max_results)
+        except Exception as e:
+            logger.warning(f"Simple search failed: {e}, trying advanced method...")
+            return await self._search_youtube_advanced(query, max_results)
+    
+    async def _search_youtube_simple(self, query, max_results=10):
+        """Metodo di ricerca semplice che bypassa i blocchi"""
+        import httpx
+        
+        # User agents più recenti e vari per evitare blocchi
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/131.0.0.0 Safari/537.36'
+        ]
+        
+        # Configurazione ultra-minima per evitare blocchi
+        config = {
+            'quiet': True,
+            'no_warnings': True,
+            'user_agent': random.choice(user_agents),
+            'extractor_retries': 1,
+            'fragment_retries': 1,
+            'retries': 1,
+            'sleep_interval': 0,
+            'max_sleep_interval': 0,
+            'socket_timeout': 15,
+            'http_chunk_size': 1048576,  # 1MB chunks
+            'http_headers': {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+            },
+            # Disabilita tutte le funzionalità avanzate che possono causare blocchi
+            'extract_flat': True,
+            'no_check_certificate': True,
+            'ignoreerrors': True,
+        }
+        
+        try:
+            with yt_dlp.YoutubeDL(config) as ydl:
+                search_url = f"ytsearch{max_results}:{query}"
+                logger.info(f"Simple search with URL: {search_url}")
+                info = ydl.extract_info(search_url, download=False)
+                
+                if info and 'entries' in info:
+                    results = []
+                    for entry in info['entries']:
+                        if entry and entry.get('id'):
+                            results.append({
+                                'id': entry.get('id'),
+                                'title': entry.get('title', 'Unknown Title'),
+                                'uploader': entry.get('uploader', 'Unknown Uploader'),
+                                'duration': entry.get('duration', 0),
+                                'webpage_url': entry.get('webpage_url', f"https://youtube.com/watch?v={entry.get('id')}"),
+                                'thumbnail': entry.get('thumbnail', ''),
+                                'view_count': entry.get('view_count', 0)
+                            })
+                    
+                    logger.info(f"Simple search found {len(results)} results")
+                    return results
+        except Exception as e:
+            logger.error(f"Simple search failed: {e}")
+            raise e
+        
+        return []
+    
+    async def _search_youtube_advanced(self, query, max_results=10):
+        """Metodo di ricerca avanzato con tutte le configurazioni"""
         # User agents più recenti e vari per evitare blocchi
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -417,6 +493,7 @@ class SuperYouTubeDownloader:
                         for entry in info['entries']:
                             if entry:  # Skip None entries
                                 results.append({
+                                    'id': entry.get('id', ''),
                                     'title': clean_text(entry.get('title', 'Unknown')),
                                     'duration': entry.get('duration', 0),
                                     'uploader': clean_text(entry.get('uploader', 'Unknown')),
@@ -556,18 +633,18 @@ class SuperYouTubeDownloader:
                     
                     if info:
                         logger.info(f"Successfully got video info with config {i+1}")
-                        return {
-                            'title': clean_text(info.get('title', 'Unknown')),
-                            'duration': info.get('duration', 0),
-                            'uploader': clean_text(info.get('uploader', 'Unknown')),
-                            'thumbnail': info.get('thumbnail', ''),
-                            'webpage_url': info.get('webpage_url', url),
-                            'view_count': info.get('view_count', 0),
-                            'like_count': info.get('like_count', 0),
-                            'description': clean_text(info.get('description', '')),
-                            'upload_date': info.get('upload_date', ''),
-                            'tags': info.get('tags', [])[:5] if info.get('tags') else []
-                        }
+                return {
+                    'title': clean_text(info.get('title', 'Unknown')),
+                    'duration': info.get('duration', 0),
+                    'uploader': clean_text(info.get('uploader', 'Unknown')),
+                    'thumbnail': info.get('thumbnail', ''),
+                    'webpage_url': info.get('webpage_url', url),
+                    'view_count': info.get('view_count', 0),
+                    'like_count': info.get('like_count', 0),
+                    'description': clean_text(info.get('description', '')),
+                    'upload_date': info.get('upload_date', ''),
+                    'tags': info.get('tags', [])[:5] if info.get('tags') else []
+                }
                     
             except Exception as e:
                 error_msg = str(e)
@@ -1219,10 +1296,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         await update.message.reply_text(
-            welcome_message,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=reply_markup
-        )
+        welcome_message,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=reply_markup
+    )
     except BadRequest as e:
         if "Can't parse entities" in str(e):
             # Invia senza Markdown se c'è un errore di parsing
@@ -1576,7 +1653,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "❌ **💥 URL non trovato nella cache. 💥**\n\n"
                     "🔄 **Per favore invia di nuovo l'URL YouTube per ricominciare il download.** 🔄"
                 )
-                return
+            return
         
         await query.edit_message_text(get_text(actual_user_id, 'downloading', format=format_type.upper(), quality=quality))
         
@@ -1604,7 +1681,7 @@ def cleanup_old_files_sync(context: ContextTypes.DEFAULT_TYPE):
         
         if not os.path.exists(DOWNLOAD_PATH):
             return
-            
+        
         for user_dir in os.listdir(DOWNLOAD_PATH):
             user_path = os.path.join(DOWNLOAD_PATH, user_dir)
             if os.path.isdir(user_path):
