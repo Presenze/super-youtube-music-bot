@@ -128,6 +128,25 @@ class SuperYouTubeDownloader:
         self.user_languages = self.load_languages()
         self.url_cache = {}  # Cache per URL hash
         self.ffmpeg_available = check_ffmpeg()
+        self.cookies_file = self.find_cookies_file()
+    
+    def find_cookies_file(self):
+        """Cerca file di cookies per YouTube"""
+        possible_paths = [
+            "cookies.txt",
+            "youtube_cookies.txt",
+            "cookies.json",
+            os.path.expanduser("~/.config/youtube-dl/cookies.txt"),
+            os.path.expanduser("~/.config/yt-dlp/cookies.txt"),
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                logger.info(f"Found cookies file: {path}")
+                return path
+        
+        logger.info("No cookies file found - using without authentication")
+        return None
     
     def load_stats(self):
         """Carica le statistiche dei download"""
@@ -201,41 +220,85 @@ class SuperYouTubeDownloader:
     
     async def get_video_info(self, url):
         """Ottiene informazioni complete del video"""
-        # User agents per evitare blocchi
+        # User agents più recenti e vari per evitare blocchi
         user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/131.0.0.0 Safari/537.36'
         ]
         
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'user_agent': random.choice(user_agents),
-            'extractor_retries': 3,
-            'fragment_retries': 3,
-            'retries': 3,
+            'extractor_retries': 5,
+            'fragment_retries': 5,
+            'retries': 5,
+            'sleep_interval': 2,
+            'max_sleep_interval': 8,
+            'socket_timeout': 30,
+            # Headers più realistici
+            'http_headers': {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0'
+            },
+            # Anti-detection avanzato
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_skip': ['configs'],
+                    'max_comments': [0],
+                    'include_live_chat': False,
+                }
+            }
         }
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Aggiungi cookies se disponibili
+        if self.cookies_file:
+            ydl_opts['cookiefile'] = self.cookies_file
+        
+        # Prova con configurazioni diverse se la prima fallisce
+        configs = [
+            ydl_opts,  # Configurazione principale
+            {**ydl_opts, 'extractor_args': {}},  # Senza extractor_args
+            {**ydl_opts, 'http_headers': {}},  # Senza headers personalizzati
+            {**ydl_opts, 'sleep_interval': 0, 'max_sleep_interval': 0},  # Senza sleep
+        ]
+        
+        for i, config in enumerate(configs):
             try:
-                info = ydl.extract_info(url, download=False)
-                return {
-                    'title': clean_text(info.get('title', 'Unknown')),
-                    'duration': info.get('duration', 0),
-                    'uploader': clean_text(info.get('uploader', 'Unknown')),
-                    'thumbnail': info.get('thumbnail', ''),
-                    'webpage_url': info.get('webpage_url', url),
-                    'view_count': info.get('view_count', 0),
-                    'like_count': info.get('like_count', 0),
-                    'description': clean_text(info.get('description', '')),
-                    'upload_date': info.get('upload_date', ''),
-                    'tags': info.get('tags', [])[:5] if info.get('tags') else []
-                }
+                with yt_dlp.YoutubeDL(config) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    return {
+                        'title': clean_text(info.get('title', 'Unknown')),
+                        'duration': info.get('duration', 0),
+                        'uploader': clean_text(info.get('uploader', 'Unknown')),
+                        'thumbnail': info.get('thumbnail', ''),
+                        'webpage_url': info.get('webpage_url', url),
+                        'view_count': info.get('view_count', 0),
+                        'like_count': info.get('like_count', 0),
+                        'description': clean_text(info.get('description', '')),
+                        'upload_date': info.get('upload_date', ''),
+                        'tags': info.get('tags', [])[:5] if info.get('tags') else []
+                    }
             except Exception as e:
-                logger.error(f"Error getting video info: {e}")
-                return None
+                logger.warning(f"Config {i+1} failed: {e}")
+                if i == len(configs) - 1:  # Ultima configurazione
+                    logger.error(f"All configs failed for video info: {e}")
+                    return None
+                continue
     
     async def download_audio(self, url, user_id, format='mp3', quality='320'):
         """Download audio PREMIUM VELOCISSIMO con anti-blocco"""
@@ -262,15 +325,18 @@ class SuperYouTubeDownloader:
             
             output_template = os.path.join(user_dir, f"{info['title'][:50]}.%(ext)s")
             
-            # User agents per evitare blocchi
+            # User agents più recenti e vari per evitare blocchi
             user_agents = [
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/131.0.0.0 Safari/537.36'
             ]
             
-            # Configurazione PREMIUM per download VELOCISSIMO con anti-blocco
+            # Configurazione PREMIUM per download VELOCISSIMO con anti-blocco avanzato
             ydl_opts = {
                 'format': 'bestaudio[ext=m4a]/bestaudio/best',
                 'outtmpl': output_template,
@@ -284,27 +350,67 @@ class SuperYouTubeDownloader:
                 'writethumbnail': True,
                 'embed_thumbnail': True,
                 'add_metadata': True,
-                # Anti-blocco YouTube
+                # Anti-blocco YouTube avanzato
                 'user_agent': random.choice(user_agents),
                 'extractor_retries': 5,
                 'fragment_retries': 5,
                 'retries': 5,
-                'socket_timeout': 60,
+                'socket_timeout': 30,
                 'http_chunk_size': 10485760,  # 10MB chunks
-                'sleep_interval': 1,
-                'max_sleep_interval': 5,
-                # Headers per evitare blocchi
+                'sleep_interval': 2,
+                'max_sleep_interval': 8,
+                # Headers più realistici per evitare rilevamento
                 'http_headers': {
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-us,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
                     'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Cache-Control': 'max-age=0'
                 },
+                # Anti-detection avanzato per YouTube
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['dash', 'hls'],
+                        'player_skip': ['configs'],
+                        'max_comments': [0],
+                        'include_live_chat': False,
+                    }
+                }
             }
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+            # Aggiungi cookies se disponibili
+            if self.cookies_file:
+                ydl_opts['cookiefile'] = self.cookies_file
+            
+            # Prova con configurazioni diverse se la prima fallisce
+            configs = [
+                ydl_opts,  # Configurazione principale
+                {**ydl_opts, 'extractor_args': {}},  # Senza extractor_args
+                {**ydl_opts, 'http_headers': {}},  # Senza headers personalizzati
+                {**ydl_opts, 'sleep_interval': 0, 'max_sleep_interval': 0},  # Senza sleep
+            ]
+            
+            download_success = False
+            for i, config in enumerate(configs):
+                try:
+                    with yt_dlp.YoutubeDL(config) as ydl:
+                        ydl.download([url])
+                    download_success = True
+                    break
+                except Exception as e:
+                    logger.warning(f"Download config {i+1} failed: {e}")
+                    if i == len(configs) - 1:  # Ultima configurazione
+                        logger.error(f"All download configs failed: {e}")
+                        return None, f"Download failed: {str(e)}" if self.get_user_language(user_id) == 'en' else f"Download fallito: {str(e)}"
+                    continue
+            
+            if not download_success:
+                return None, "Download failed with all configurations." if self.get_user_language(user_id) == 'en' else "Download fallito con tutte le configurazioni."
             
             for file in os.listdir(user_dir):
                 if file.endswith(f'.{format}'):
@@ -367,6 +473,7 @@ TEXTS_IT = {
 /stats - Le tue statistiche
 /settings - Impostazioni
 /language - Cambia lingua
+/cookies - Info cookies YouTube
 
 🎵 **Invia un URL YouTube per iniziare!** 🚀""",
     
@@ -517,6 +624,7 @@ TEXTS_EN = {
 /stats - Your statistics
 /settings - Settings
 /language - Change language
+/cookies - YouTube cookies info
 
 🎵 **Send a YouTube URL to get started!** 🚀""",
     
@@ -744,6 +852,34 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.callback_query.edit_message_text(language_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
 
+async def cookies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando per informazioni sui cookies"""
+    user_id = update.effective_user.id
+    
+    if downloader.cookies_file:
+        message = f"🍪 **Cookies trovati!**\n\nFile: `{downloader.cookies_file}`\n\nIl bot userà questi cookies per evitare i blocchi di YouTube."
+    else:
+        message = """🍪 **Cookies non trovati**
+
+Per migliorare la compatibilità con YouTube, puoi:
+
+1. **Esporta cookies da browser:**
+   - Installa un'estensione come "Get cookies.txt"
+   - Vai su YouTube e fai login
+   - Esporta i cookies in `cookies.txt`
+
+2. **Usa yt-dlp per esportare:**
+   ```bash
+   yt-dlp --cookies-from-browser chrome --cookies cookies.txt "https://youtube.com"
+   ```
+
+3. **Metti il file nella cartella del bot:**
+   - `cookies.txt` o `youtube_cookies.txt`
+
+Il bot funzionerà anche senza cookies, ma potrebbero esserci più blocchi."""
+    
+    await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestore URL con tema PREMIUM BELLISSIMO e pulsanti colorati"""
     url = update.message.text.strip()
@@ -908,6 +1044,7 @@ def main():
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("language", language_command))
+    application.add_handler(CommandHandler("cookies", cookies_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(handle_callback))
     
