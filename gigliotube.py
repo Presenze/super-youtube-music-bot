@@ -61,11 +61,23 @@ def clean_text(text):
     return text[:100] + "..." if len(text) > 100 else text
 
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
-    """Crea callback data sicuro e corto"""
+    """Crea callback data sicuro e corto (max 64 byte)"""
     if action == "download":
-        # Usa solo i primi 8 caratteri dell'hash per rimanere sotto i 64 byte
-        short_hash = url_hash[:8] if url_hash else "00000000"
-        return f"dl_{user_id}_{format_type}_{quality}_{short_hash}"
+        # Usa solo i primi 4 caratteri dell'hash per rimanere sotto i 64 byte
+        short_hash = url_hash[:4] if url_hash else "0000"
+        # Abbrevia format_type e quality
+        fmt_short = format_type[:2] if format_type else "mp"
+        qual_short = quality[:2] if quality else "32"
+        callback_data = f"dl_{user_id}_{fmt_short}_{qual_short}_{short_hash}"
+        
+        # Debug: controlla la lunghezza
+        if len(callback_data) > 64:
+            print(f"WARNING: Callback data too long: {len(callback_data)} bytes - {callback_data}")
+            # Fallback: usa solo i primi 2 caratteri dell'hash
+            short_hash = url_hash[:2] if url_hash else "00"
+            callback_data = f"dl_{user_id}_{fmt_short}_{qual_short}_{short_hash}"
+        
+        return callback_data
     elif action == "stats":
         return f"st_{user_id}"
     elif action == "settings":
@@ -83,11 +95,18 @@ def parse_callback_data(data):
         return None
     
     if parts[0] == "dl" and len(parts) >= 5:
+        # Espandi le abbreviazioni
+        format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
+        quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
+        
+        format_type = format_map.get(parts[2], parts[2])
+        quality = quality_map.get(parts[3], parts[3])
+        
         return {
             "action": "download",
             "user_id": int(parts[1]),
-            "format": parts[2],
-            "quality": parts[3],
+            "format": format_type,
+            "quality": quality,
             "url_hash": parts[4]
         }
     elif parts[0] == "st":
@@ -167,6 +186,11 @@ class SuperYouTubeDownloader:
         # Se non trovato, cerca un hash che inizia con quello fornito
         for full_hash, url in self.url_cache.items():
             if full_hash.startswith(url_hash):
+                return url
+        
+        # Se ancora non trovato, cerca un hash che contiene quello fornito
+        for full_hash, url in self.url_cache.items():
+            if url_hash in full_hash:
                 return url
         
         return None
