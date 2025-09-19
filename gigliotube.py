@@ -66,8 +66,8 @@ def clean_text(text):
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
     """Crea callback data sicuro e corto (max 64 byte)"""
     if action == "download":
-        # Usa solo i primi 2 caratteri dell'hash per rimanere sotto i 64 byte
-        short_hash = url_hash[:2] if url_hash else "00"
+        # Usa solo 1 carattere dell'hash per rimanere sotto i 64 byte
+        short_hash = url_hash[:1] if url_hash else "0"
         # Abbrevia format_type e quality
         fmt_short = format_type[:2] if format_type else "mp"
         qual_short = quality[:2] if quality else "32"
@@ -76,9 +76,8 @@ def create_callback_data(user_id, action, format_type=None, quality=None, url_ha
         # Debug: controlla la lunghezza
         if len(callback_data) > 64:
             print(f"WARNING: Callback data too long: {len(callback_data)} bytes - {callback_data}")
-            # Fallback: usa solo 1 carattere dell'hash
-            short_hash = url_hash[:1] if url_hash else "0"
-            callback_data = f"dl_{user_id}_{fmt_short}_{qual_short}_{short_hash}"
+            # Fallback: usa solo user_id e hash
+            callback_data = f"dl_{user_id}_{short_hash}"
         
         return callback_data
     elif action == "stats":
@@ -97,21 +96,31 @@ def parse_callback_data(data):
     if len(parts) < 2:
         return None
     
-    if parts[0] == "dl" and len(parts) >= 5:
-        # Espandi le abbreviazioni
-        format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
-        quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
-        
-        format_type = format_map.get(parts[2], parts[2])
-        quality = quality_map.get(parts[3], parts[3])
-        
-        return {
-            "action": "download",
-            "user_id": int(parts[1]),
-            "format": format_type,
-            "quality": quality,
-            "url_hash": parts[4]
-        }
+    if parts[0] == "dl":
+        if len(parts) >= 5:
+            # Formato completo: dl_userid_format_quality_hash
+            format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
+            quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
+            
+            format_type = format_map.get(parts[2], parts[2])
+            quality = quality_map.get(parts[3], parts[3])
+            
+            return {
+                "action": "download",
+                "user_id": int(parts[1]),
+                "format": format_type,
+                "quality": quality,
+                "url_hash": parts[4]
+            }
+        elif len(parts) >= 3:
+            # Formato ridotto: dl_userid_hash
+            return {
+                "action": "download",
+                "user_id": int(parts[1]),
+                "format": "mp3",  # Default
+                "quality": "320k",  # Default
+                "url_hash": parts[2]
+            }
     elif parts[0] == "st":
         return {"action": "stats", "user_id": int(parts[1])}
     elif parts[0] == "se":
@@ -365,7 +374,14 @@ class SuperYouTubeDownloader:
                         'tags': info.get('tags', [])[:5] if info.get('tags') else []
                     }
             except Exception as e:
+                error_msg = str(e)
                 logger.warning(f"Config {i+1} failed: {e}")
+                
+                # Se il video non è disponibile, non provare altre configurazioni
+                if "Video unavailable" in error_msg or "not available" in error_msg:
+                    logger.error(f"Video not available: {e}")
+                    return None
+                
                 if i == len(configs) - 1:  # Ultima configurazione
                     logger.error(f"All configs failed for video info: {e}")
                     return None
