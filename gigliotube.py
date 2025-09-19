@@ -57,7 +57,10 @@ def clean_text(text):
     """Pulisce il testo per evitare errori di parsing markdown"""
     if not text:
         return ""
-    text = re.sub(r'[*_`\[\]()]', '', str(text))
+    # Rimuovi tutti i caratteri speciali che possono causare errori di parsing
+    text = re.sub(r'[*_`\[\]()~>#+=|{}.!-]', '', str(text))
+    # Rimuovi anche emoji e caratteri speciali
+    text = re.sub(r'[^\w\s]', '', text)
     return text[:100] + "..." if len(text) > 100 else text
 
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
@@ -851,6 +854,12 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error("Bot conflict - multiple instances running")
     elif isinstance(context.error, BadRequest):
         logger.error(f"Bad request: {context.error}")
+        # Se è un errore di parsing, prova a inviare senza Markdown
+        if "Can't parse entities" in str(context.error) and update and update.effective_chat:
+            try:
+                await update.effective_chat.send_message("❌ Errore di formattazione. Riprova.")
+            except:
+                pass
     else:
         logger.error(f"Generic error: {context.error}")
 
@@ -879,11 +888,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
-        welcome_message,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=reply_markup
-    )
+    try:
+        await update.message.reply_text(
+            welcome_message,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=reply_markup
+        )
+    except BadRequest as e:
+        if "Can't parse entities" in str(e):
+            # Invia senza Markdown se c'è un errore di parsing
+            await update.message.reply_text(
+                clean_text(welcome_message),
+                reply_markup=reply_markup
+            )
+        else:
+            raise
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Comando help con tema PREMIUM BELLISSIMO"""
@@ -1141,11 +1160,12 @@ def main():
     # Controlla se ci sono altri processi Python in esecuzione
     try:
         import psutil
+        current_pid = os.getpid()
         python_processes = [p for p in psutil.process_iter(['pid', 'name', 'cmdline']) 
-                          if p.info['name'] == 'python.exe' and 'gigliotube.py' in ' '.join(p.info['cmdline'])]
+                          if p.info['name'] == 'python.exe' and 'gigliotube.py' in ' '.join(p.info['cmdline']) and p.info['pid'] != current_pid]
         if len(python_processes) > 0:
-            print("⚠️  WARNING: Bot instances detected!")
-            print("🔄 Stopping all instances...")
+            print("⚠️  WARNING: Other bot instances detected!")
+            print("🔄 Stopping other instances...")
             for proc in python_processes:
                 try:
                     proc.terminate()
@@ -1155,6 +1175,8 @@ def main():
             print("⏳ Waiting 3 seconds for processes to stop...")
             import time
             time.sleep(3)
+        else:
+            print("✅ No other bot instances found")
     except ImportError:
         print("ℹ️  psutil not available - skipping process check")
     except Exception as e:
