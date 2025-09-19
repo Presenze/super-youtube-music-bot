@@ -1143,17 +1143,22 @@ def main():
         import psutil
         python_processes = [p for p in psutil.process_iter(['pid', 'name', 'cmdline']) 
                           if p.info['name'] == 'python.exe' and 'gigliotube.py' in ' '.join(p.info['cmdline'])]
-        if len(python_processes) > 1:
-            print("⚠️  WARNING: Multiple bot instances detected!")
-            print("🔄 Stopping other instances...")
-            for proc in python_processes[1:]:  # Keep the first one
+        if len(python_processes) > 0:
+            print("⚠️  WARNING: Bot instances detected!")
+            print("🔄 Stopping all instances...")
+            for proc in python_processes:
                 try:
                     proc.terminate()
                     print(f"✅ Stopped process {proc.pid}")
                 except:
                     pass
+            print("⏳ Waiting 3 seconds for processes to stop...")
+            import time
+            time.sleep(3)
     except ImportError:
         print("ℹ️  psutil not available - skipping process check")
+    except Exception as e:
+        print(f"⚠️  Process check failed: {e}")
     
     # Controlla FFmpeg all'avvio
     if not check_ffmpeg():
@@ -1185,8 +1190,8 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(handle_callback))
     
-    # Avvia job cleanup (ogni 6 ore invece di 1 ora)
-    application.job_queue.run_repeating(cleanup_old_files_sync, interval=21600, first=60)
+    # Avvia job cleanup (ogni 6 ore invece di 1 ora) - DISABILITATO TEMPORANEAMENTE
+    # application.job_queue.run_repeating(cleanup_old_files_sync, interval=21600, first=60)
     
     # Esegui il bot
     logger.info("Starting GiglioTube - Super YouTube Music Download Bot...")
