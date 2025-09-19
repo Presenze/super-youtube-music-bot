@@ -64,25 +64,29 @@ def clean_text(text):
     return text[:100] + "..." if len(text) > 100 else text
 
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
-    """Crea callback data sicuro e corto (max 64 byte)"""
+    """Crea callback data sicuro e corto (max 64 byte) - VERSIONE ULTRA-ROBUSTA"""
     if action == "download":
-        # Usa solo i primi 2 caratteri dell'hash per rimanere sotto i 64 byte
-        short_hash = url_hash[:2] if url_hash else "00"
-        # Abbrevia format_type e quality
-        fmt_short = format_type[:2] if format_type else "mp"
-        qual_short = quality[:2] if quality else "32"
-        # Usa solo le ultime 6 cifre dell'user_id per ridurre la lunghezza
-        user_short = str(user_id)[-6:] if len(str(user_id)) > 6 else str(user_id)
+        # Usa hash più lungo ma sicuro
+        short_hash = url_hash[:6] if url_hash else "000000"
+        # Abbrevia format_type e quality in modo più sicuro
+        fmt_map = {"mp3": "m3", "m4a": "m4", "wav": "wv", "flac": "fl"}
+        qual_map = {"128": "12", "192": "19", "320": "32", "64": "64"}
+        
+        fmt_short = fmt_map.get(format_type, "m3")
+        qual_short = qual_map.get(quality, "32")
+        
+        # Usa solo le ultime 3 cifre dell'user_id per lasciare più spazio all'hash
+        user_short = str(user_id)[-3:] if len(str(user_id)) > 3 else str(user_id)
         callback_data = f"dl_{user_short}_{fmt_short}_{qual_short}_{short_hash}"
         
-        # Debug: controlla la lunghezza
+        # Verifica lunghezza massima
         if len(callback_data) > 64:
-            print(f"WARNING: Callback data too long: {len(callback_data)} bytes - {callback_data}")
-            # Fallback: usa solo 1 carattere dell'hash e 4 cifre user_id
-            short_hash = url_hash[:1] if url_hash else "0"
-            user_short = str(user_id)[-4:] if len(str(user_id)) > 4 else str(user_id)
+            # Fallback con hash più corto
+            short_hash = url_hash[:4] if url_hash else "0000"
+            user_short = str(user_id)[-2:] if len(str(user_id)) > 2 else str(user_id)
             callback_data = f"dl_{user_short}_{fmt_short}_{qual_short}_{short_hash}"
         
+        logger.info(f"Created callback data: {callback_data} (length: {len(callback_data)})")
         return callback_data
     elif action == "stats":
         return f"st_{user_id}"
@@ -95,50 +99,54 @@ def create_callback_data(user_id, action, format_type=None, quality=None, url_ha
     return f"cb_{user_id}_{action}"
 
 def parse_callback_data(data):
-    """Parsa callback data"""
+    """Parsa callback data - VERSIONE ULTRA-ROBUSTA CON VALIDAZIONE"""
+    if not data or not isinstance(data, str):
+        logger.error(f"Invalid callback data type: {type(data)}")
+        return None
+        
     parts = data.split("_")
     if len(parts) < 2:
+        logger.error(f"Invalid callback data format: {data}")
         return None
     
-    if parts[0] == "dl" and len(parts) >= 5:
-        # Espandi le abbreviazioni
-        format_map = {"mp": "mp3", "fl": "flac", "wa": "wav", "aa": "aac"}
-        quality_map = {"32": "320k", "19": "192k", "12": "128k", "64": "64k"}
-        
-        format_type = format_map.get(parts[2], parts[2])
-        quality = quality_map.get(parts[3], parts[3])
-        
-        # Gestisci user_id abbreviati - cerca nell'url_cache per trovare l'user_id completo
-        user_id_short = parts[1]
-        full_user_id = None
-        
-        # Cerca nell'url_cache per trovare l'user_id completo che termina con questo suffisso
-        for cached_hash, url in downloader.url_cache.items():
-            if cached_hash.endswith(parts[4]):  # Se l'hash corrisponde
-                # Estrai user_id dal contesto (questo è un workaround)
-                # In pratica, useremo l'user_id dal contesto della callback query
-                break
-        
-        # Se non troviamo l'user_id completo, usa quello abbreviato
-        # Il vero user_id verrà preso dal contesto della callback query
-        user_id = int(user_id_short) if user_id_short.isdigit() else 0
-        
-        return {
-            "action": "download",
-            "user_id": user_id,
-            "format": format_type,
-            "quality": quality,
-            "url_hash": parts[4]
-        }
-    elif parts[0] == "st":
-        return {"action": "stats", "user_id": int(parts[1])}
-    elif parts[0] == "se":
-        return {"action": "settings", "user_id": int(parts[1])}
-    elif parts[0] == "lg":
-        return {"action": "language", "user_id": int(parts[1])}
-    elif parts[0] == "sl" and len(parts) >= 3:
-        return {"action": "set_lang", "user_id": int(parts[1]), "language": parts[2]}
+    try:
+        if parts[0] == "dl" and len(parts) >= 5:
+            # Espandi le abbreviazioni con mappa corretta
+            format_map = {"m3": "mp3", "m4": "m4a", "wv": "wav", "fl": "flac"}
+            quality_map = {"32": "320", "19": "192", "12": "128", "64": "64"}
+            
+            format_type = format_map.get(parts[2], "mp3")
+            quality = quality_map.get(parts[3], "320")
+            
+            # Gestisci user_id - usa quello dal contesto della callback query
+            user_id_short = parts[1]
+            user_id = int(user_id_short) if user_id_short.isdigit() else 0
+            
+            # L'hash può essere più lungo ora
+            url_hash = parts[4]
+            
+            logger.info(f"Parsed callback data: user_id={user_id}, format={format_type}, quality={quality}, hash={url_hash}")
+            
+            return {
+                "action": "download",
+                "user_id": user_id,
+                "format": format_type,
+                "quality": quality,
+                "url_hash": url_hash
+            }
+        elif parts[0] == "st":
+            return {"action": "stats", "user_id": int(parts[1])}
+        elif parts[0] == "se":
+            return {"action": "settings", "user_id": int(parts[1])}
+        elif parts[0] == "lg":
+            return {"action": "language", "user_id": int(parts[1])}
+        elif parts[0] == "sl" and len(parts) >= 3:
+            return {"action": "set_lang", "user_id": int(parts[1]), "language": parts[2]}
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing callback data '{data}': {e}")
+        return None
     
+    logger.error(f"Unknown callback data format: {data}")
     return None
 
 class SuperYouTubeDownloader:
@@ -287,11 +295,23 @@ class SuperYouTubeDownloader:
         return None
     
     def store_url_hash(self, url, url_hash):
-        """Salva URL con hash"""
+        """Salva URL con hash - VERSIONE CON PULIZIA AUTOMATICA"""
+        # Pulisci cache se diventa troppo grande (mantieni solo gli ultimi 100 URL)
+        if len(self.url_cache) > 100:
+            # Rimuovi i primi 50 URL (più vecchi)
+            keys_to_remove = list(self.url_cache.keys())[:50]
+            for key in keys_to_remove:
+                del self.url_cache[key]
+            logger.info(f"Cleaned URL cache, removed {len(keys_to_remove)} old entries")
+        
         self.url_cache[url_hash] = url
+        logger.info(f"Stored URL in cache: {url_hash} -> {url}")
     
-    async def get_video_info(self, url):
-        """Ottiene informazioni complete del video"""
+    async def search_youtube(self, query, max_results=10):
+        """Cerca video su YouTube - VERSIONE ULTRA-POTENTE"""
+        if not query or len(query.strip()) < 2:
+            return []
+        
         # User agents più recenti e vari per evitare blocchi
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -303,7 +323,8 @@ class SuperYouTubeDownloader:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/131.0.0.0 Safari/537.36'
         ]
         
-        ydl_opts = {
+        # Configurazione base ultra-potente per ricerca
+        base_config = {
             'quiet': True,
             'no_warnings': True,
             'user_agent': random.choice(user_agents),
@@ -313,7 +334,8 @@ class SuperYouTubeDownloader:
             'sleep_interval': 0.5,
             'max_sleep_interval': 2,
             'socket_timeout': 30,
-            # Headers più realistici
+            'http_chunk_size': 10485760,  # 10MB chunks
+            # Headers ultra-realistici
             'http_headers': {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
@@ -324,30 +346,42 @@ class SuperYouTubeDownloader:
                 'Sec-Fetch-Dest': 'document',
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'none',
-                'Cache-Control': 'max-age=0'
+                'Cache-Control': 'max-age=0',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"'
             },
-            # Anti-detection avanzato
+            # Anti-detection ultra-avanzato per YouTube
             'extractor_args': {
                 'youtube': {
                     'skip': ['dash', 'hls'],
                     'player_skip': ['configs'],
                     'max_comments': [0],
                     'include_live_chat': False,
+                    'player_client': ['android', 'web'],
                 }
             }
         }
         
         # Aggiungi cookies se disponibili
         if self.cookies_file:
-            ydl_opts['cookiefile'] = self.cookies_file
+            base_config['cookiefile'] = self.cookies_file
         
-        # Prova con configurazioni diverse se la prima fallisce
+        # Configurazioni multiple per massima compatibilità
         configs = [
-            ydl_opts,  # Configurazione principale
-            {**ydl_opts, 'extractor_args': {}},  # Senza extractor_args
-            {**ydl_opts, 'http_headers': {}},  # Senza headers personalizzati
-            {**ydl_opts, 'sleep_interval': 0, 'max_sleep_interval': 0},  # Senza sleep
-            # Configurazione ultra-minima per YouTube
+            # 1. Configurazione principale ultra-potente
+            base_config,
+            
+            # 2. Senza extractor_args specifici
+            {**base_config, 'extractor_args': {}},
+            
+            # 3. Senza headers personalizzati
+            {**base_config, 'http_headers': {}},
+            
+            # 4. Configurazione mobile
+            {**base_config, 'user_agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36'},
+            
+            # 5. Configurazione ultra-minima
             {
                 'quiet': True,
                 'no_warnings': True,
@@ -357,47 +391,210 @@ class SuperYouTubeDownloader:
                 'retries': 1,
                 'sleep_interval': 0,
                 'max_sleep_interval': 0,
-                'socket_timeout': 10,
+                'socket_timeout': 30,
             },
-            # Configurazione con cookies se disponibili
-            {**ydl_opts, 'cookiefile': self.cookies_file} if self.cookies_file else None,
         ]
         
         # Rimuovi configurazioni None
         configs = [c for c in configs if c is not None]
         
+        last_error = None
         for i, config in enumerate(configs):
             try:
+                logger.info(f"Trying search config {i+1}/{len(configs)} for query: {query}")
                 with yt_dlp.YoutubeDL(config) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    return {
-                        'title': clean_text(info.get('title', 'Unknown')),
-                        'duration': info.get('duration', 0),
-                        'uploader': clean_text(info.get('uploader', 'Unknown')),
-                        'thumbnail': info.get('thumbnail', ''),
-                        'webpage_url': info.get('webpage_url', url),
-                        'view_count': info.get('view_count', 0),
-                        'like_count': info.get('like_count', 0),
-                        'description': clean_text(info.get('description', '')),
-                        'upload_date': info.get('upload_date', ''),
-                        'tags': info.get('tags', [])[:5] if info.get('tags') else []
-                    }
+                    # Crea URL di ricerca YouTube
+                    search_url = f"ytsearch{max_results}:{query}"
+                    info = ydl.extract_info(search_url, download=False)
+                    
+                    if info and 'entries' in info:
+                        results = []
+                        for entry in info['entries']:
+                            if entry:  # Skip None entries
+                                results.append({
+                                    'title': clean_text(entry.get('title', 'Unknown')),
+                                    'duration': entry.get('duration', 0),
+                                    'uploader': clean_text(entry.get('uploader', 'Unknown')),
+                                    'thumbnail': entry.get('thumbnail', ''),
+                                    'webpage_url': entry.get('webpage_url', ''),
+                                    'view_count': entry.get('view_count', 0),
+                                    'description': clean_text(entry.get('description', ''))[:200] + "..." if entry.get('description') else '',
+                                    'upload_date': entry.get('upload_date', ''),
+                                })
+                        
+                        logger.info(f"Successfully found {len(results)} results with config {i+1}")
+                        return results[:max_results]
+                    
             except Exception as e:
                 error_msg = str(e)
+                last_error = e
+                logger.warning(f"Search config {i+1} failed: {e}")
+                
+                # Se è un errore di rete, prova la configurazione successiva
+                if any(phrase in error_msg.lower() for phrase in [
+                    "network", "connection", "timeout", "ssl", "certificate"
+                ]):
+                    logger.warning(f"Network error with search config {i+1}, trying next...")
+                    continue
+                
+                # Se è l'ultima configurazione, logga l'errore
+                if i == len(configs) - 1:
+                    logger.error(f"All search configs failed. Last error: {e}")
+        
+        # Se arriviamo qui, tutte le configurazioni sono fallite
+        logger.error(f"All search configs failed. Last error: {last_error}")
+        return []
+
+    async def get_video_info(self, url):
+        """Ottiene informazioni complete del video - VERSIONE ULTRA-POTENTE"""
+        # User agents più recenti e vari per evitare blocchi
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/131.0.0.0 Safari/537.36'
+        ]
+        
+        # Configurazione base ultra-potente
+        base_config = {
+            'quiet': True,
+            'no_warnings': True,
+            'user_agent': random.choice(user_agents),
+            'extractor_retries': 5,
+            'fragment_retries': 5,
+            'retries': 5,
+            'sleep_interval': 1,
+            'max_sleep_interval': 3,
+            'socket_timeout': 60,
+            'http_chunk_size': 10485760,  # 10MB chunks
+            # Headers ultra-realistici
+            'http_headers': {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"'
+            },
+            # Anti-detection ultra-avanzato
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_skip': ['configs'],
+                    'max_comments': [0],
+                    'include_live_chat': False,
+                    'player_client': ['android', 'web'],
+                }
+            }
+        }
+        
+        # Aggiungi cookies se disponibili
+        if self.cookies_file:
+            base_config['cookiefile'] = self.cookies_file
+        
+        # Configurazioni multiple per massima compatibilità
+        configs = [
+            # 1. Configurazione principale ultra-potente
+            base_config,
+            
+            # 2. Senza extractor_args specifici
+            {**base_config, 'extractor_args': {}},
+            
+            # 3. Senza headers personalizzati
+            {**base_config, 'http_headers': {}},
+            
+            # 4. Configurazione mobile
+            {**base_config, 'user_agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36'},
+            
+            # 5. Configurazione ultra-minima
+            {
+                'quiet': True,
+                'no_warnings': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'extractor_retries': 1,
+                'fragment_retries': 1,
+                'retries': 1,
+                'sleep_interval': 0,
+                'max_sleep_interval': 0,
+                'socket_timeout': 30,
+            },
+            
+            # 6. Configurazione con cookies se disponibili
+            {**base_config, 'cookiefile': self.cookies_file} if self.cookies_file else None,
+            
+            # 7. Configurazione con proxy rotazione (se disponibile)
+            {**base_config, 'proxy': None} if hasattr(self, 'proxy_list') else None,
+            
+            # 8. Configurazione con referer
+            {**base_config, 'http_headers': {**base_config['http_headers'], 'Referer': 'https://www.youtube.com/'}},
+        ]
+        
+        # Rimuovi configurazioni None
+        configs = [c for c in configs if c is not None]
+        
+        last_error = None
+        for i, config in enumerate(configs):
+            try:
+                logger.info(f"Trying video info config {i+1}/{len(configs)}")
+                with yt_dlp.YoutubeDL(config) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    
+                    if info:
+                        logger.info(f"Successfully got video info with config {i+1}")
+                        return {
+                            'title': clean_text(info.get('title', 'Unknown')),
+                            'duration': info.get('duration', 0),
+                            'uploader': clean_text(info.get('uploader', 'Unknown')),
+                            'thumbnail': info.get('thumbnail', ''),
+                            'webpage_url': info.get('webpage_url', url),
+                            'view_count': info.get('view_count', 0),
+                            'like_count': info.get('like_count', 0),
+                            'description': clean_text(info.get('description', '')),
+                            'upload_date': info.get('upload_date', ''),
+                            'tags': info.get('tags', [])[:5] if info.get('tags') else []
+                        }
+                    
+            except Exception as e:
+                error_msg = str(e)
+                last_error = e
                 logger.warning(f"Config {i+1} failed: {e}")
                 
                 # Se il video non è disponibile, non provare altre configurazioni
-                if "Video unavailable" in error_msg or "not available" in error_msg:
+                if any(phrase in error_msg.lower() for phrase in [
+                    "video unavailable", "not available", "private video", 
+                    "video is private", "video has been removed", "deleted video",
+                    "this video is not available", "video unavailable in your country"
+                ]):
                     logger.error(f"Video unavailable: {error_msg}")
                     return None
                 
-                if i == len(configs) - 1:  # Ultima configurazione
-                    logger.error(f"All configs failed for video info: {e}")
-                    return None
-                continue
+                # Se è un errore di rete, prova la configurazione successiva
+                if any(phrase in error_msg.lower() for phrase in [
+                    "network", "connection", "timeout", "ssl", "certificate"
+                ]):
+                    logger.warning(f"Network error with config {i+1}, trying next...")
+                    continue
+                
+                # Se è l'ultima configurazione, logga l'errore
+                if i == len(configs) - 1:
+                    logger.error(f"All configs failed for video info. Last error: {e}")
+        
+        # Se arriviamo qui, tutte le configurazioni sono fallite
+        logger.error(f"All video info configs failed. Last error: {last_error}")
+        return None
     
     async def download_audio(self, url, user_id, format='mp3', quality='320'):
-        """Download audio PREMIUM VELOCISSIMO con anti-blocco"""
+        """Download audio PREMIUM VELOCISSIMO con anti-blocco ULTRA-POTENTE"""
         if user_id in self.active_downloads:
             return None, "You already have a download in progress. Please wait." if self.get_user_language(user_id) == 'en' else "Hai già un download in corso. Attendi per favore."
         
@@ -405,6 +602,7 @@ class SuperYouTubeDownloader:
             return None, "FFmpeg not installed. Please install FFmpeg first." if self.get_user_language(user_id) == 'en' else "FFmpeg non installato. Installa FFmpeg prima."
         
         self.active_downloads[user_id] = True
+        logger.info(f"Starting download for user {user_id}: {format} {quality}k")
         
         try:
             info = await self.get_video_info(url)
@@ -570,154 +768,206 @@ downloader = SuperYouTubeDownloader()
 
 # Testi in italiano
 TEXTS_IT = {
-    'welcome': """🎧✨ **SUPER YOUTUBE MUSIC BOT PREMIUM** ✨🎧
+    'welcome': """🎧✨ **🚀 SUPER YOUTUBE MUSIC BOT PREMIUM ULTRA-POTENTE 🚀** ✨🎧
 
-🎉 **Benvenuto, {name}!** 👋
+🎉 **🎊 Benvenuto, {name}! 🎊** 👋✨
 
-🚀 **Il downloader audio YouTube più VELOCE e POTENTE!**
+🔥 **⚡ Il downloader audio YouTube più VELOCE e POTENTE del mondo! ⚡** 🔥
 
-💎 **Funzioni Premium:**
-• ⚡ Download VELOCISSIMI (ottimizzati)
-• 🎵 Formati: MP3, M4A, WAV, FLAC
-• 🎶 Qualità: 128k, 192k, 320k
-• 📊 Statistiche personali
-• 🎨 Interfaccia BELLISSIMA
-• 🔥 Performance MASSIME
-• 🌍 Supporto multilingua
-• 🛡️ Anti-blocco YouTube
+💎 **🌟 Funzioni Premium Ultra-Avanzate:**
+• ⚡ Download VELOCISSIMI (ultra-ottimizzati) 🚀
+• 🎵 Formati: MP3, M4A, WAV, FLAC 🎶
+• 🎚️ Qualità: 128k, 192k, 320k 🎼
+• 📊 Statistiche personali dettagliate 📈
+• 🎨 Interfaccia BELLISSIMA e moderna 🎭
+• 🔥 Performance MASSIME e stabili ⚡
+• 🌍 Supporto multilingua completo 🌐
+• 🛡️ Anti-blocco YouTube avanzato 🛡️
+• 🎯 Download multipli simultanei 🎯
+• 🎪 Metadati e thumbnail embedded 🎪
 
-📈 **Le Tue Stats:**
-• 🎯 Download: **{user_downloads}**
-• 🌍 Totali bot: **{total_downloads}**
+📈 **📊 Le Tue Statistiche Personali:**
+• 🎯 I tuoi download: **{user_downloads}** 🎯
+• 🌍 Download totali bot: **{total_downloads}** 🌍
 
-🎯 **Come usare:**
-1️⃣ Invia URL YouTube
-2️⃣ Scegli formato e qualità
-3️⃣ Scarica VELOCEMENTE!
+🎯 **🚀 Come usare (Super Facile!):**
+1️⃣ 📤 Invia URL YouTube
+2️⃣ 🎛️ Scegli formato e qualità
+3️⃣ ⚡ Scarica VELOCEMENTE! ⚡
 
-⚡ **Comandi Rapidi:**
-/help - Aiuto completo
-/stats - Le tue statistiche
-/settings - Impostazioni
-/language - Cambia lingua
-/cookies - Info cookies YouTube
-/refresh_cookies - Rigenera cookies automaticamente
+⚡ **🎮 Comandi Rapidi Premium:**
+/search - 🔍 Cerca musica su YouTube
+/help - 📚 Aiuto completo e dettagliato
+/stats - 📊 Le tue statistiche personali
+/settings - ⚙️ Impostazioni avanzate
+/language - 🌍 Cambia lingua
+/cookies - 🍪 Info cookies YouTube
+/refresh_cookies - 🔄 Rigenera cookies automaticamente
 
-🎵 **Invia un URL YouTube per iniziare!** 🚀""",
+🎵 **🚀 Invia un URL YouTube per iniziare l'avventura! 🚀** 🎵""",
     
-    'help': """🎧✨ **SUPER YOUTUBE MUSIC BOT PREMIUM** ✨🎧
+    'help': """🎧✨ **🚀 SUPER YOUTUBE MUSIC BOT PREMIUM ULTRA-POTENTE 🚀** ✨🎧
 
-🎯 **Utilizzo Base:**
-1️⃣ **Invia URL YouTube** - Qualsiasi link video
-2️⃣ **Scegli formato** - MP3, M4A, WAV, FLAC
-3️⃣ **Seleziona qualità** - 128k, 192k, 320k
-4️⃣ **Scarica VELOCEMENTE!** ⚡
+🎯 **🚀 Utilizzo Base (Super Facile!):**
+1️⃣ **🔍 Cerca Musica** - Usa /search per trovare canzoni
+2️⃣ **📤 Invia URL YouTube** - Qualsiasi link video
+3️⃣ **🎛️ Scegli formato** - MP3, M4A, WAV, FLAC
+4️⃣ **🎚️ Seleziona qualità** - 128k, 192k, 320k
+5️⃣ **⚡ Scarica VELOCEMENTE! ⚡** 🚀
 
-🎵 **Formati Supportati:**
-• 🎵 **MP3** - Più compatibile, buona qualità
-• 🎶 **M4A** - Alta qualità, file più piccoli
-• 🎼 **WAV** - Qualità lossless, file più grandi
-• 🎹 **FLAC** - Formato lossless premium
+🎵 **🎶 Formati Supportati (Tutti Premium!):**
+• 🎵 **MP3** - Più compatibile, buona qualità 🎵
+• 🎶 **M4A** - Alta qualità, file più piccoli 🎶
+• 🎼 **WAV** - Qualità lossless, file più grandi 🎼
+• 🎹 **FLAC** - Formato lossless premium 🎹
 
-🎚️ **Opzioni Qualità:**
-• **128k** - Qualità standard, file più piccoli
-• **192k** - Alta qualità (raccomandato)
-• **320k** - Qualità premium, file più grandi
+🎚️ **🎛️ Opzioni Qualità (Tutte Disponibili!):**
+• **128k** - Qualità standard, file più piccoli 📱
+• **192k** - Alta qualità (raccomandato) ⭐
+• **320k** - Qualità premium, file più grandi 💎
 
-📋 **URL Supportati:**
-• Video singoli: `youtube.com/watch?v=...`
-• Link corti: `youtu.be/...`
-• Playlist: `youtube.com/playlist?list=...`
+📋 **🔗 URL Supportati (Tutti i Tipi!):**
+• Video singoli: `youtube.com/watch?v=...` 🎬
+• Link corti: `youtu.be/...` 🔗
+• Playlist: `youtube.com/playlist?list=...` 📋
 
-⚡ **Funzioni Premium:**
-• **Download VELOCISSIMI** - Ottimizzati per velocità
-• **Elaborazione Batch** - Download multipli
-• **Embedding Metadati** - Info artista, titolo, album
-• **Embedding Thumbnail** - Copertina nei file audio
-• **Statistiche Download** - Traccia il tuo utilizzo
-• **Supporto Multilingua** - Italiano e Inglese
-• **Anti-blocco YouTube** - Bypass restrizioni
+⚡ **🌟 Funzioni Premium Ultra-Avanzate:**
+• **⚡ Download VELOCISSIMI** - Ottimizzati per velocità massima 🚀
+• **🎯 Elaborazione Batch** - Download multipli simultanei 🎯
+• **🎪 Embedding Metadati** - Info artista, titolo, album 🎪
+• **🖼️ Embedding Thumbnail** - Copertina nei file audio 🖼️
+• **📊 Statistiche Download** - Traccia il tuo utilizzo 📊
+• **🌍 Supporto Multilingua** - Italiano e Inglese 🌍
+• **🛡️ Anti-blocco YouTube** - Bypass restrizioni avanzato 🛡️
+• **🎮 Interfaccia Intuitiva** - Facile da usare 🎮
+• **⚡ Performance Ottimizzate** - Velocità massima ⚡
 
-🔧 **Comandi:**
-/start - Messaggio di benvenuto
-/help - Questo messaggio di aiuto
-/stats - Le tue statistiche download
-/settings - Impostazioni personali
-/language - Cambia lingua
+🔧 **🎮 Comandi Premium:**
+/start - 🏠 Messaggio di benvenuto
+/search - 🔍 Cerca musica su YouTube
+/help - 📚 Questo messaggio di aiuto
+/stats - 📊 Le tue statistiche download
+/settings - ⚙️ Impostazioni personali
+/language - 🌍 Cambia lingua
+/cancel - 🚫 Annulla ricerca
+
+💡 **🎯 Suggerimenti Pro:**
+• 🎵 Usa qualità 320k per la massima qualità 💎
+• 🧹 I file vengono puliti automaticamente dopo 24 ore 🧹
+• ⏰ Massimo 60 minuti per video (PREMIUM) ⏰
+• 📦 Massimo 100MB per file (PREMIUM) 📦
+• 🚀 Usa formati MP3 per compatibilità massima 🚀
+
+🎵 **🚀 Serve aiuto? Invia un URL YouTube e inizia! 🚀** 🎵""",
+    
+    'stats': """📊✨ **🚀 LE TUE STATISTICHE PREMIUM 🚀** ✨📊
+
+👤 **📈 Statistiche Personali:**
+• 🎯 I tuoi download: **{user_stats}** 🎯
+• 🏆 Posizione: **#{user_rank}** utente 🏆
+
+🌍 **🌐 Statistiche Globali:**
+• 📈 Download totali: **{total_stats}** 📈
+• 🎵 Formato più popolare: **{popular_format}** 🎵
+
+📈 **🎶 Utilizzo Formati Dettagliato:**
+• 🎵 MP3: {mp3_count} download 🎵
+• 🎶 M4A: {m4a_count} download 🎶
+• 🎼 WAV: {wav_count} download 🎼
+• 🎹 FLAC: {flac_count} download 🎹
+
+🎯 **🚀 Continua a scaricare per salire nella classifica! 🚀** 🎯""",
+    
+    'settings': """⚙️✨ **🚀 IMPOSTAZIONI PREMIUM ULTRA-AVANZATE 🚀** ✨⚙️
+
+🎚️ **🎛️ Qualità Predefinita:** 320k (PREMIUM) 💎
+🎵 **🎶 Formato Predefinito:** MP3 🎵
+📊 **📈 Mostra Statistiche:** Sì ✅
+🔔 **🔔 Notifiche:** Sì ✅
+🌍 **🌐 Lingua:** Italiano 🇮🇹
+
+💎 **🌟 Funzioni Premium Attive:**
+• 🎵 Download qualità superiore (320k, FLAC) 🎵
+• ⏰ Supporto video più lunghi (60 minuti) ⏰
+• ⚡ Elaborazione prioritaria ⚡
+• 📊 Metadati avanzati 📊
+• 🌍 Supporto multilingua 🌍
+• 🛡️ Anti-blocco YouTube 🛡️
+• 🎯 Download multipli simultanei 🎯
+• 🎪 Thumbnail embedded 🎪
+
+🔧 **🎮 Comandi Premium:**
+/start - 🏠 Menu principale
+/help - 📚 Aiuto e istruzioni
+/stats - 📊 Le tue statistiche
+/settings - ⚙️ Queste impostazioni
+/language - 🌍 Cambia lingua""",
+    
+    'language': """🌍✨ **🚀 SELEZIONA LINGUA PREMIUM 🚀** ✨🌍
+
+🎯 **Scegli la tua lingua preferita:**
+
+🇮🇹 **Italiano** - Interfaccia in italiano 🇮🇹
+🇺🇸 **English** - English interface 🇺🇸
+
+💾 **La tua scelta verrà salvata per le prossime sessioni!** 💾""",
+    
+    'language_changed': """✅ **🎉 Lingua cambiata con successo! 🎉**
+
+🌍 **La tua lingua preferita è ora: {language}** 🌍
+
+🚀 **Usa /start per vedere il menu principale nella nuova lingua!** 🚀""",
+    
+    'processing': "🔍✨ **🚀 Analizzando video... Attendi per favore... 🚀** ✨",
+    'choose_format': "🎯 **🎛️ Scegli il formato e qualità preferiti: 🎛️**",
+    'downloading': "⬇️✨ **🚀 Scaricando come {format} {quality}k... 🚀**\n⚡ **Questo potrebbe richiedere alcuni minuti... ⚡** ✨",
+    'completed': "✅✨ **🎉 Download completato! Il tuo file {format} è stato inviato! 🎉** ✨",
+    'failed': "❌ **💥 Download fallito: {error} 💥**",
+    'invalid_url': "❌ **🚫 Invia un URL YouTube valido. 🚫**\n\n**Esempio:** `https://www.youtube.com/watch?v=...`",
+    'video_info_error': "❌ **💥 Impossibile ottenere le informazioni del video. Controlla l'URL. 💥**",
+    'unauthorized': "❌ **🚫 Puoi scaricare solo le tue richieste. 🚫**",
+    'ffmpeg_error': "❌ **💥 FFmpeg non installato! 💥**\n\n**Installa FFmpeg per usare il bot:**\n1. Vai su https://ffmpeg.org/download.html\n2. Scarica per Windows\n3. Estrai in C:\\ffmpeg\n4. Aggiungi al PATH di sistema\n\n**Oppure usa:** `choco install ffmpeg`",
+    
+    'search': """🔍✨ **🚀 RICERCA MUSICA YOUTUBE 🚀** ✨🔍
+
+🎯 **Cerca la tua musica preferita:**
+
+Invia il nome di una canzone, artista o qualsiasi termine di ricerca e troverò i migliori risultati su YouTube!
+
+**Esempi:**
+• 🎵 "Imagine Dragons Believer"
+• 🎶 "Ed Sheeran Shape of You"
+• 🎼 "Classical music"
+• 🎹 "Jazz piano"
+
+**Comandi di ricerca:**
+/search - Avvia ricerca
+/cancel - Annulla ricerca
+
+🎵 **Invia la tua ricerca qui sotto!** 🎵""",
+    
+    'search_results': """🔍✨ **🚀 RISULTATI RICERCA 🚀** ✨🔍
+
+🎯 **Query:** `{query}`
+📊 **Trovati:** {count} risultati
+
+Scegli il video che preferisci:""",
+    
+    'search_no_results': """❌ **💥 Nessun risultato trovato! 💥**
+
+🔍 **Query:** `{query}`
 
 💡 **Suggerimenti:**
-• Usa qualità 320k per la massima qualità
-• I file vengono puliti automaticamente dopo 24 ore
-• Massimo 60 minuti per video (PREMIUM)
-• Massimo 100MB per file (PREMIUM)
+• Prova con termini diversi
+• Usa nomi di artisti più specifici
+• Controlla l'ortografia
+• Prova con parole chiave in inglese
 
-🎵 **Serve aiuto? Invia un URL YouTube!** 🚀""",
+🎵 **Riprova con una nuova ricerca!** 🎵""",
     
-    'stats': """📊✨ **LE TUE STATISTICHE** ✨📊
-
-👤 **Statistiche Personali:**
-• 🎯 I tuoi download: **{user_stats}**
-• 🏆 Posizione: **#{user_rank}** utente
-
-🌍 **Statistiche Globali:**
-• 📈 Download totali: **{total_stats}**
-• 🎵 Formato più popolare: **{popular_format}**
-
-📈 **Utilizzo Formati:**
-• 🎵 MP3: {mp3_count} download
-• 🎶 M4A: {m4a_count} download
-• 🎼 WAV: {wav_count} download
-• 🎹 FLAC: {flac_count} download
-
-🎯 **Continua a scaricare per salire nella classifica!** 🚀""",
+    'search_processing': "🔍✨ **🚀 Cercando su YouTube... Attendi per favore... 🚀** ✨",
     
-    'settings': """⚙️✨ **IMPOSTAZIONI PREMIUM** ✨⚙️
-
-🎚️ **Qualità Predefinita:** 320k (PREMIUM)
-🎵 **Formato Predefinito:** MP3
-📊 **Mostra Statistiche:** Sì
-🔔 **Notifiche:** Sì
-🌍 **Lingua:** Italiano
-
-💎 **Funzioni Premium Attive:**
-• 🎵 Download qualità superiore (320k, FLAC)
-• ⏰ Supporto video più lunghi (60 minuti)
-• ⚡ Elaborazione prioritaria
-• 📊 Metadati avanzati
-• 🌍 Supporto multilingua
-• 🛡️ Anti-blocco YouTube
-
-🔧 **Comandi:**
-/start - Menu principale
-/help - Aiuto e istruzioni
-/stats - Le tue statistiche
-/settings - Queste impostazioni
-/language - Cambia lingua""",
-    
-    'language': """🌍✨ **SELEZIONA LINGUA** ✨🌍
-
-Scegli la tua lingua preferita:
-
-🇮🇹 **Italiano** - Interfaccia in italiano
-🇺🇸 **English** - English interface
-
-La tua scelta verrà salvata per le prossime sessioni.""",
-    
-    'language_changed': """✅ **Lingua cambiata con successo!**
-
-La tua lingua preferita è ora: **{language}**
-
-Usa /start per vedere il menu principale nella nuova lingua.""",
-    
-    'processing': "🔍✨ Analizzando video... Attendi per favore... ✨",
-    'choose_format': "🎯 **Scegli il formato e qualità preferiti:**",
-    'downloading': "⬇️✨ Scaricando come {format} {quality}k...\n⚡ Questo potrebbe richiedere alcuni minuti... ✨",
-    'completed': "✅✨ Download completato! Il tuo file {format} è stato inviato! ✨",
-    'failed': "❌ Download fallito: {error}",
-    'invalid_url': "❌ Invia un URL YouTube valido.\n\nEsempio: https://www.youtube.com/watch?v=...",
-    'video_info_error': "❌ Impossibile ottenere le informazioni del video. Controlla l'URL.",
-    'unauthorized': "❌ Puoi scaricare solo le tue richieste.",
-    'ffmpeg_error': "❌ FFmpeg non installato!\n\nInstalla FFmpeg per usare il bot:\n1. Vai su https://ffmpeg.org/download.html\n2. Scarica per Windows\n3. Estrai in C:\\ffmpeg\n4. Aggiungi al PATH di sistema\n\nOppure usa: choco install ffmpeg"
+    'search_cancelled': "❌ **🚫 Ricerca annullata! 🚫**\n\n🎵 **Invia /search per iniziare una nuova ricerca!** 🎵"
 }
 
 # Testi in inglese
@@ -869,7 +1119,48 @@ Use /start to see the main menu in the new language.""",
     'invalid_url': "❌ Please send a valid YouTube URL.\n\nExample: https://www.youtube.com/watch?v=...",
     'video_info_error': "❌ Could not get video information. Please check the URL.",
     'unauthorized': "❌ You can only download your own requests.",
-    'ffmpeg_error': "❌ FFmpeg not installed!\n\nInstall FFmpeg to use the bot:\n1. Go to https://ffmpeg.org/download.html\n2. Download for Windows\n3. Extract to C:\\ffmpeg\n4. Add to system PATH\n\nOr use: choco install ffmpeg"
+    'ffmpeg_error': "❌ FFmpeg not installed!\n\nInstall FFmpeg to use the bot:\n1. Go to https://ffmpeg.org/download.html\n2. Download for Windows\n3. Extract to C:\\ffmpeg\n4. Add to system PATH\n\nOr use: choco install ffmpeg",
+    
+    'search': """🔍✨ **🚀 YOUTUBE MUSIC SEARCH 🚀** ✨🔍
+
+🎯 **Search for your favorite music:**
+
+Send a song name, artist or any search term and I'll find the best results on YouTube!
+
+**Examples:**
+• 🎵 "Imagine Dragons Believer"
+• 🎶 "Ed Sheeran Shape of You"
+• 🎼 "Classical music"
+• 🎹 "Jazz piano"
+
+**Search commands:**
+/search - Start search
+/cancel - Cancel search
+
+🎵 **Send your search below!** 🎵""",
+    
+    'search_results': """🔍✨ **🚀 SEARCH RESULTS 🚀** ✨🔍
+
+🎯 **Query:** `{query}`
+📊 **Found:** {count} results
+
+Choose the video you prefer:""",
+    
+    'search_no_results': """❌ **💥 No results found! 💥**
+
+🔍 **Query:** `{query}`
+
+💡 **Suggestions:**
+• Try different terms
+• Use more specific artist names
+• Check spelling
+• Try keywords in English
+
+🎵 **Try a new search!** 🎵""",
+    
+    'search_processing': "🔍✨ **🚀 Searching YouTube... Please wait... 🚀** ✨",
+    
+    'search_cancelled': "❌ **🚫 Search cancelled! 🚫**\n\n🎵 **Send /search to start a new search!** 🎵"
 }
 
 def get_text(user_id, key, **kwargs):
@@ -913,6 +1204,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # PULSANTI COLORATI E BELLISSIMI CON EMOJI
     keyboard = [
+        [InlineKeyboardButton("🔍 Cerca Musica", callback_data=create_callback_data(user_id, "search"))],
         [InlineKeyboardButton("🎵 Download Audio", callback_data=create_callback_data(user_id, "help"))],
         [InlineKeyboardButton("📊 My Stats", callback_data=create_callback_data(user_id, "stats"))],
         [InlineKeyboardButton("⚙️ Settings", callback_data=create_callback_data(user_id, "settings"))],
@@ -1043,10 +1335,105 @@ async def refresh_cookies_command(update: Update, context: ContextTypes.DEFAULT_
     
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 
+async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando di ricerca YouTube"""
+    user_id = update.effective_user.id
+    
+    # Imposta lo stato di ricerca per l'utente
+    if not hasattr(context, 'user_data'):
+        context.user_data = {}
+    context.user_data[user_id] = {'searching': True}
+    
+    search_text = get_text(user_id, 'search')
+    await update.message.reply_text(search_text, parse_mode=ParseMode.MARKDOWN)
+
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando per annullare la ricerca"""
+    user_id = update.effective_user.id
+    
+    # Rimuovi lo stato di ricerca
+    if hasattr(context, 'user_data') and user_id in context.user_data:
+        context.user_data[user_id] = {'searching': False}
+    
+    cancel_text = get_text(user_id, 'search_cancelled')
+    await update.message.reply_text(cancel_text, parse_mode=ParseMode.MARKDOWN)
+
+async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Gestore per query di ricerca YouTube"""
+    query = update.message.text.strip()
+    user_id = update.effective_user.id
+    
+    # Controlla se l'utente è in modalità ricerca
+    if not hasattr(context, 'user_data') or not context.user_data.get(user_id, {}).get('searching', False):
+        return False  # Non gestire questo messaggio
+    
+    if len(query) < 2:
+        await update.message.reply_text("❌ **🚫 Query troppo corta! Invia almeno 2 caratteri. 🚫**")
+        return True
+    
+    processing_msg = await update.message.reply_text(get_text(user_id, 'search_processing'))
+    
+    try:
+        # Cerca su YouTube
+        results = await downloader.search_youtube(query, max_results=10)
+        
+        if not results:
+            await processing_msg.edit_text(get_text(user_id, 'search_no_results', query=query))
+            return True
+        
+        # Crea messaggio con risultati
+        results_text = get_text(user_id, 'search_results', query=query, count=len(results))
+        
+        # Crea pulsanti per i risultati
+        keyboard = []
+        for i, result in enumerate(results[:10]):  # Massimo 10 risultati
+            duration_min = result['duration'] // 60 if result['duration'] else 0
+            duration_sec = result['duration'] % 60 if result['duration'] else 0
+            duration_str = f"{duration_min}:{duration_sec:02d}" if result['duration'] else "Unknown"
+            
+            # Crea callback data per il risultato
+            url_hash = hashlib.md5(result['webpage_url'].encode()).hexdigest()[:12]
+            downloader.store_url_hash(result['webpage_url'], url_hash)
+            
+            # Pulsante con titolo abbreviato
+            title = result['title'][:40] + "..." if len(result['title']) > 40 else result['title']
+            button_text = f"🎵 {title} ({duration_str})"
+            
+            keyboard.append([InlineKeyboardButton(
+                button_text, 
+                callback_data=create_callback_data(user_id, "download", "mp3", "320", url_hash)
+            )])
+        
+        # Aggiungi pulsante per nuova ricerca
+        keyboard.append([InlineKeyboardButton("🔍 Nuova Ricerca", callback_data=create_callback_data(user_id, "search"))])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await processing_msg.edit_text(
+            results_text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=reply_markup
+        )
+        
+        # Rimuovi stato di ricerca
+        if hasattr(context, 'user_data') and user_id in context.user_data:
+            context.user_data[user_id] = {'searching': False}
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        await processing_msg.edit_text(f"❌ **💥 Errore durante la ricerca: {str(e)} 💥**")
+        return True
+
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestore URL con tema PREMIUM BELLISSIMO e pulsanti colorati"""
     url = update.message.text.strip()
     user_id = update.effective_user.id
+    
+    # Prima controlla se è una query di ricerca
+    if hasattr(context, 'user_data') and context.user_data.get(user_id, {}).get('searching', False):
+        return await handle_search_query(update, context)
     
     if not any(domain in url for domain in ['youtube.com', 'youtu.be']):
         await update.message.reply_text(get_text(user_id, 'invalid_url'))
@@ -1064,9 +1451,10 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await processing_msg.edit_text(get_text(user_id, 'video_info_error'))
         return
     
-    # Crea hash per URL
-    url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+    # Crea hash per URL - VERSIONE MIGLIORATA
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:12]  # Hash più lungo per evitare collisioni
     downloader.store_url_hash(url, url_hash)
+    logger.info(f"Stored URL hash: {url_hash} for URL: {url}")
     
     duration_min = info['duration'] // 60
     duration_sec = info['duration'] % 60
@@ -1079,7 +1467,9 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
 👀 **Views:** {view_count}
 🔗 **URL:** {info['webpage_url']}
 
-{get_text(user_id, 'choose_format')}"""
+{get_text(user_id, 'choose_format')}
+
+💾 **URL Hash:** `{url_hash}`"""
     
     # PULSANTI COLORATI E BELLISSIMI PREMIUM CON EMOJI
     keyboard = [
@@ -1112,7 +1502,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     parsed_data = parse_callback_data(data)
     if not parsed_data:
-        await query.edit_message_text("❌ Invalid callback data")
+        logger.error(f"Invalid callback data received: {data}")
+        await query.edit_message_text("❌ **💥 Invalid callback data. Please try again. 💥**")
         return
     
     action = parsed_data["action"]
@@ -1135,6 +1526,15 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         language_name = "Italiano" if language == 'it' else "English"
         await query.edit_message_text(get_text(user_id, 'language_changed', language=language_name), parse_mode=ParseMode.MARKDOWN)
         return
+    elif action == "search":
+        # Avvia modalità ricerca
+        if not hasattr(context, 'user_data'):
+            context.user_data = {}
+        context.user_data[user_id] = {'searching': True}
+        
+        search_text = get_text(user_id, 'search')
+        await query.edit_message_text(search_text, parse_mode=ParseMode.MARKDOWN)
+        return
     
     if action == "download":
         format_type = parsed_data["format"]
@@ -1146,8 +1546,32 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         url = downloader.get_url_from_hash(url_hash)
         if not url:
-            await query.edit_message_text("❌ URL not found. Please try again.")
-            return
+            logger.error(f"URL not found for hash: {url_hash}. Available hashes: {list(downloader.url_cache.keys())}")
+            
+            # Prova a estrarre l'URL dal messaggio come fallback
+            try:
+                message_text = query.message.text
+                if message_text and "URL:" in message_text:
+                    # Estrai URL dal messaggio
+                    import re
+                    url_match = re.search(r'URL: (https?://[^\s]+)', message_text)
+                    if url_match:
+                        url = url_match.group(1)
+                        logger.info(f"Extracted URL from message: {url}")
+                        # Salva l'URL con l'hash corrente
+                        downloader.store_url_hash(url, url_hash)
+                    else:
+                        raise ValueError("No URL found in message")
+                else:
+                    raise ValueError("No message text available")
+            except Exception as e:
+                logger.error(f"Failed to extract URL from message: {e}")
+                # Prova a chiedere all'utente di inviare di nuovo l'URL
+                await query.edit_message_text(
+                    "❌ **💥 URL non trovato nella cache. 💥**\n\n"
+                    "🔄 **Per favore invia di nuovo l'URL YouTube per ricominciare il download.** 🔄"
+                )
+                return
         
         await query.edit_message_text(get_text(actual_user_id, 'downloading', format=format_type.upper(), quality=quality))
         
@@ -1244,6 +1668,8 @@ def main():
     application.add_handler(CommandHandler("language", language_command))
     application.add_handler(CommandHandler("cookies", cookies_command))
     application.add_handler(CommandHandler("refresh_cookies", refresh_cookies_command))
+    application.add_handler(CommandHandler("search", search_command))
+    application.add_handler(CommandHandler("cancel", cancel_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(handle_callback))
     

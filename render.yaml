@@ -1,13 +1,17 @@
 services:
   - type: worker
-    name: gigliotube-bot
+    name: gigliotube-bot-ultra-potente
     env: python
     plan: free
-    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirements-ultra-minimal.txt
-    startCommand: python gigliotube.py
+    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt
+    startCommand: python start_render.py
     envVars:
       - key: BOT_TOKEN
         sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: TZ
+        value: "Europe/Rome"
     autoDeploy: true
     branch: main
     repo: https://github.com/Presenze/super-youtube-music-bot
