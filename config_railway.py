@@ -1,11 +1,7 @@
 import os
 
-# Try to load dotenv if available, but don't fail if it's not
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    print("ℹ️  python-dotenv not available, using environment variables only")
+# Railway configuration - No external dependencies
+# This file is designed specifically for Railway deployment
 
 # Bot configuration
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -20,9 +16,12 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB limit (PREMIUM)
 SUPPORTED_FORMATS = ['mp3', 'm4a', 'wav', 'flac']
 
 # Bot settings
-MAX_CONCURRENT_DOWNLOADS = 5  # Aumentato per Render
+MAX_CONCURRENT_DOWNLOADS = 5  # Increased for Railway
 CLEANUP_AFTER_HOURS = 24
 
-# Render specific settings
-RENDER_ENV = True
+# Railway specific settings
+RAILWAY_ENV = True
+PLATFORM = 'railway'
 LOG_LEVEL = "INFO"
+
+print(f"🚂 Running on Railway platform")

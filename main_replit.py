@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
 """
-GiglioTube - Super YouTube Music Bot
-Start script for Render deployment
+GiglioTube Bot - Main file for Replit deployment
 """
 
 import os
 import sys
 import logging
 
-# Set up logging for Render
+# Set up logging for Replit
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
 logger = logging.getLogger(__name__)
 
 def main():
-    """Main entry point for Render deployment"""
-    logger.info("🚀 Starting GiglioTube - Super YouTube Music Bot on Render...")
+    """Main entry point for Replit deployment"""
+    logger.info("🚀 Starting GiglioTube Bot on Replit...")
     
     # Set environment variables for production
-    os.environ['RENDER'] = 'true'
-    os.environ['PLATFORM'] = 'render'
+    os.environ['REPLIT'] = 'true'
+    os.environ['PLATFORM'] = 'replit'
     
-    # Check if we're on Render
-    if os.getenv('RENDER'):
-        logger.info("✅ Running on Render platform")
+    # Check if we're on Replit
+    if os.getenv('REPL_ID'):
+        logger.info("✅ Running on Replit platform")
     else:
         logger.info("ℹ️  Running locally")
     

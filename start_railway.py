@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-GiglioTube - Super YouTube Music Bot
-Start script for Render deployment
+GiglioTube Bot - Start script for Railway deployment
 """
 
 import os
 import sys
 import logging
 
-# Set up logging for Render
+# Set up logging for Railway
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -20,16 +19,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def main():
-    """Main entry point for Render deployment"""
-    logger.info("🚀 Starting GiglioTube - Super YouTube Music Bot on Render...")
+    """Main entry point for Railway deployment"""
+    logger.info("🚀 Starting GiglioTube - Super YouTube Music Bot on Railway...")
     
-    # Set environment variables for production
-    os.environ['RENDER'] = 'true'
-    os.environ['PLATFORM'] = 'render'
+    # Set environment variables for Railway
+    os.environ['RAILWAY'] = 'true'
+    os.environ['RAILWAY_ENVIRONMENT'] = 'true'
+    os.environ['PLATFORM'] = 'railway'
     
-    # Check if we're on Render
-    if os.getenv('RENDER'):
-        logger.info("✅ Running on Render platform")
+    # Check if we're on Railway
+    if os.getenv('RAILWAY'):
+        logger.info("✅ Running on Railway platform")
     else:
         logger.info("ℹ️  Running locally")
     

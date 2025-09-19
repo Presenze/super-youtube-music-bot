@@ -29,10 +29,29 @@ except ImportError:
 
 import shutil
 
-try:
-    from config import *
-except ImportError:
-    from config_render import *
+# Platform-specific configuration loading
+import os
+
+# Check if we're on Railway
+if os.getenv('RAILWAY') or os.getenv('RAILWAY_ENVIRONMENT'):
+    try:
+        from config_railway import *
+        print("✅ Using Railway configuration")
+    except ImportError:
+        print("⚠️  Railway config not found, trying production config")
+        try:
+            from config_production import *
+        except ImportError:
+            from config_render import *
+else:
+    # Try production config first, then fallback
+    try:
+        from config_production import *
+    except ImportError:
+        try:
+            from config import *
+        except ImportError:
+            from config_render import *
 
 # Set up logging
 logging.basicConfig(

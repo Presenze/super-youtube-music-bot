@@ -1,7 +1,11 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Try to load dotenv if available, but don't fail if it's not
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("ℹ️  python-dotenv not available, using environment variables only")
 
 # Bot configuration
 BOT_TOKEN = os.getenv('BOT_TOKEN') or "8237710386:AAF9MmADLR0PfihDtK8ZTmeDRi884MbV8HM"
