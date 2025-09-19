@@ -360,6 +360,16 @@ class SuperYouTubeDownloader:
             'extract_flat': True,
             'no_check_certificate': True,
             'ignoreerrors': True,
+            # Aggiungi configurazioni specifiche per evitare errori JSON
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_skip': ['configs'],
+                    'max_comments': [0],
+                    'include_live_chat': False,
+                    'player_client': ['android'],
+                }
+            }
         }
         
         try:
@@ -386,7 +396,53 @@ class SuperYouTubeDownloader:
                     return results
         except Exception as e:
             logger.error(f"Simple search failed: {e}")
-            raise e
+            # Se il metodo semplice fallisce, prova con un approccio ancora più basilare
+            return await self._search_youtube_basic(query, max_results)
+        
+        return []
+    
+    async def _search_youtube_basic(self, query, max_results=10):
+        """Metodo di ricerca ultra-basico come ultimo fallback"""
+        try:
+            # Configurazione ultra-basica
+            config = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': True,
+                'ignoreerrors': True,
+                'no_check_certificate': True,
+                'extractor_retries': 0,
+                'fragment_retries': 0,
+                'retries': 0,
+                'sleep_interval': 0,
+                'max_sleep_interval': 0,
+                'socket_timeout': 10,
+            }
+            
+            with yt_dlp.YoutubeDL(config) as ydl:
+                search_url = f"ytsearch{max_results}:{query}"
+                logger.info(f"Basic search with URL: {search_url}")
+                info = ydl.extract_info(search_url, download=False)
+                
+                if info and 'entries' in info:
+                    results = []
+                    for entry in info['entries']:
+                        if entry and entry.get('id'):
+                            results.append({
+                                'id': entry.get('id'),
+                                'title': entry.get('title', 'Unknown Title'),
+                                'uploader': entry.get('uploader', 'Unknown Uploader'),
+                                'duration': entry.get('duration', 0),
+                                'webpage_url': entry.get('webpage_url', f"https://youtube.com/watch?v={entry.get('id')}"),
+                                'thumbnail': entry.get('thumbnail', ''),
+                                'view_count': entry.get('view_count', 0)
+                            })
+                    
+                    logger.info(f"Basic search found {len(results)} results")
+                    return results
+        except Exception as e:
+            logger.error(f"Basic search also failed: {e}")
+            return []
         
         return []
     
@@ -1618,7 +1674,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(search_text, parse_mode=ParseMode.MARKDOWN)
         return
     
-    if action == "download":
+    elif action == "download":
         format_type = parsed_data["format"]
         quality = parsed_data["quality"]
         url_hash = parsed_data["url_hash"]
