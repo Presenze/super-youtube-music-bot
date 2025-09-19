@@ -18,6 +18,17 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+def start_healthcheck():
+    """Avvia server di healthcheck in background"""
+    try:
+        import threading
+        from healthcheck import start_healthcheck_server
+        healthcheck_thread = threading.Thread(target=start_healthcheck_server, daemon=True)
+        healthcheck_thread.start()
+        logger.info("🏥 Healthcheck server started")
+    except Exception as e:
+        logger.warning(f"⚠️  Healthcheck server failed to start: {e}")
+
 def main():
     """Main entry point for Railway deployment"""
     logger.info("🚀 Starting GiglioTube - Super YouTube Music Bot on Railway...")
@@ -30,6 +41,8 @@ def main():
     # Check if we're on Railway
     if os.getenv('RAILWAY'):
         logger.info("✅ Running on Railway platform")
+        # Avvia healthcheck server per Railway
+        start_healthcheck()
     else:
         logger.info("ℹ️  Running locally")
     
