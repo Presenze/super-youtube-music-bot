@@ -63,8 +63,8 @@ def clean_text(text):
 def create_callback_data(user_id, action, format_type=None, quality=None, url_hash=None):
     """Crea callback data sicuro e corto (max 64 byte)"""
     if action == "download":
-        # Usa solo i primi 4 caratteri dell'hash per rimanere sotto i 64 byte
-        short_hash = url_hash[:4] if url_hash else "0000"
+        # Usa solo i primi 2 caratteri dell'hash per rimanere sotto i 64 byte
+        short_hash = url_hash[:2] if url_hash else "00"
         # Abbrevia format_type e quality
         fmt_short = format_type[:2] if format_type else "mp"
         qual_short = quality[:2] if quality else "32"
@@ -73,8 +73,8 @@ def create_callback_data(user_id, action, format_type=None, quality=None, url_ha
         # Debug: controlla la lunghezza
         if len(callback_data) > 64:
             print(f"WARNING: Callback data too long: {len(callback_data)} bytes - {callback_data}")
-            # Fallback: usa solo i primi 2 caratteri dell'hash
-            short_hash = url_hash[:2] if url_hash else "00"
+            # Fallback: usa solo 1 carattere dell'hash
+            short_hash = url_hash[:1] if url_hash else "0"
             callback_data = f"dl_{user_id}_{fmt_short}_{qual_short}_{short_hash}"
         
         return callback_data
@@ -145,8 +145,54 @@ class SuperYouTubeDownloader:
                 logger.info(f"Found cookies file: {path}")
                 return path
         
+        # Prova a generare cookies automaticamente
+        try:
+            self.generate_cookies_automatically()
+            if os.path.exists("cookies.txt"):
+                logger.info("Generated cookies automatically")
+                return "cookies.txt"
+        except Exception as e:
+            logger.warning(f"Could not generate cookies: {e}")
+        
         logger.info("No cookies file found - using without authentication")
         return None
+    
+    def generate_cookies_automatically(self):
+        """Genera cookies automaticamente usando yt-dlp"""
+        try:
+            import subprocess
+            # Prova a generare cookies dal browser
+            cmd = [
+                "yt-dlp", 
+                "--cookies-from-browser", "chrome",
+                "--cookies", "cookies.txt",
+                "--no-download",
+                "https://youtube.com"
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0 and os.path.exists("cookies.txt"):
+                logger.info("Successfully generated cookies from Chrome")
+                return True
+        except Exception as e:
+            logger.warning(f"Chrome cookies generation failed: {e}")
+        
+        try:
+            # Prova con Firefox
+            cmd = [
+                "yt-dlp", 
+                "--cookies-from-browser", "firefox",
+                "--cookies", "cookies.txt",
+                "--no-download",
+                "https://youtube.com"
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0 and os.path.exists("cookies.txt"):
+                logger.info("Successfully generated cookies from Firefox")
+                return True
+        except Exception as e:
+            logger.warning(f"Firefox cookies generation failed: {e}")
+        
+        return False
     
     def load_stats(self):
         """Carica le statistiche dei download"""
@@ -212,6 +258,11 @@ class SuperYouTubeDownloader:
             if url_hash in full_hash:
                 return url
         
+        # Se ancora non trovato, cerca un hash che ha i primi caratteri uguali
+        for full_hash, url in self.url_cache.items():
+            if len(url_hash) >= 1 and full_hash.startswith(url_hash[0]):
+                return url
+        
         return None
     
     def store_url_hash(self, url, url_hash):
@@ -275,7 +326,24 @@ class SuperYouTubeDownloader:
             {**ydl_opts, 'extractor_args': {}},  # Senza extractor_args
             {**ydl_opts, 'http_headers': {}},  # Senza headers personalizzati
             {**ydl_opts, 'sleep_interval': 0, 'max_sleep_interval': 0},  # Senza sleep
+            # Configurazione ultra-minima per YouTube
+            {
+                'quiet': True,
+                'no_warnings': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'extractor_retries': 1,
+                'fragment_retries': 1,
+                'retries': 1,
+                'sleep_interval': 0,
+                'max_sleep_interval': 0,
+                'socket_timeout': 10,
+            },
+            # Configurazione con cookies se disponibili
+            {**ydl_opts, 'cookiefile': self.cookies_file} if self.cookies_file else None,
         ]
+        
+        # Rimuovi configurazioni None
+        configs = [c for c in configs if c is not None]
         
         for i, config in enumerate(configs):
             try:
@@ -393,7 +461,31 @@ class SuperYouTubeDownloader:
                 {**ydl_opts, 'extractor_args': {}},  # Senza extractor_args
                 {**ydl_opts, 'http_headers': {}},  # Senza headers personalizzati
                 {**ydl_opts, 'sleep_interval': 0, 'max_sleep_interval': 0},  # Senza sleep
+                # Configurazione ultra-minima per YouTube
+                {
+                    'format': 'bestaudio[ext=m4a]/bestaudio/best',
+                    'outtmpl': output_template,
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': format,
+                        'preferredquality': quality,
+                    }],
+                    'quiet': True,
+                    'no_warnings': True,
+                    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'extractor_retries': 1,
+                    'fragment_retries': 1,
+                    'retries': 1,
+                    'sleep_interval': 0,
+                    'max_sleep_interval': 0,
+                    'socket_timeout': 10,
+                },
+                # Configurazione con cookies se disponibili
+                {**ydl_opts, 'cookiefile': self.cookies_file} if self.cookies_file else None,
             ]
+            
+            # Rimuovi configurazioni None
+            configs = [c for c in configs if c is not None]
             
             download_success = False
             for i, config in enumerate(configs):
@@ -474,6 +566,7 @@ TEXTS_IT = {
 /settings - Impostazioni
 /language - Cambia lingua
 /cookies - Info cookies YouTube
+/refresh_cookies - Rigenera cookies automaticamente
 
 🎵 **Invia un URL YouTube per iniziare!** 🚀""",
     
@@ -625,6 +718,7 @@ TEXTS_EN = {
 /settings - Settings
 /language - Change language
 /cookies - YouTube cookies info
+/refresh_cookies - Regenerate cookies automatically
 
 🎵 **Send a YouTube URL to get started!** 🚀""",
     
@@ -880,6 +974,24 @@ Il bot funzionerà anche senza cookies, ma potrebbero esserci più blocchi."""
     
     await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
 
+async def refresh_cookies_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Comando per rigenerare i cookies"""
+    user_id = update.effective_user.id
+    
+    await update.message.reply_text("🔄 **Rigenerazione cookies in corso...**\n\nAttendi qualche secondo...", parse_mode=ParseMode.MARKDOWN)
+    
+    try:
+        # Rigenera cookies
+        if downloader.generate_cookies_automatically():
+            downloader.cookies_file = "cookies.txt"
+            message = "✅ **Cookies rigenerati con successo!**\n\nIl bot ora userà i cookies per evitare i blocchi di YouTube."
+        else:
+            message = "❌ **Impossibile rigenerare i cookies automaticamente.**\n\nProva a:\n1. Aprire YouTube nel browser\n2. Fare login\n3. Usare il comando /cookies per istruzioni manuali"
+    except Exception as e:
+        message = f"❌ **Errore durante la rigenerazione:**\n\n{str(e)}\n\nProva il metodo manuale con /cookies"
+    
+    await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestore URL con tema PREMIUM BELLISSIMO e pulsanti colorati"""
     url = update.message.text.strip()
@@ -1069,6 +1181,7 @@ def main():
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("language", language_command))
     application.add_handler(CommandHandler("cookies", cookies_command))
+    application.add_handler(CommandHandler("refresh_cookies", refresh_cookies_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(handle_callback))
     
