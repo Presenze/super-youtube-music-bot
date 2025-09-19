@@ -1525,8 +1525,8 @@ async def handle_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE
         # Crea pulsanti per i risultati
         keyboard = []
         for i, result in enumerate(results[:10]):  # Massimo 10 risultati
-            duration_min = result['duration'] // 60 if result['duration'] else 0
-            duration_sec = result['duration'] % 60 if result['duration'] else 0
+            duration_min = int(result['duration']) // 60 if result['duration'] else 0
+            duration_sec = int(result['duration']) % 60 if result['duration'] else 0
             duration_str = f"{duration_min}:{duration_sec:02d}" if result['duration'] else "Unknown"
             
             # Crea callback data per il risultato
@@ -1594,8 +1594,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     downloader.store_url_hash(url, url_hash)
     logger.info(f"Stored URL hash: {url_hash} for URL: {url}")
     
-    duration_min = info['duration'] // 60
-    duration_sec = info['duration'] % 60
+    duration_min = int(info['duration']) // 60 if info['duration'] else 0
+    duration_sec = int(info['duration']) % 60 if info['duration'] else 0
     view_count = f"{info['view_count']:,}" if info['view_count'] else "Unknown" if downloader.get_user_language(user_id) == 'en' else "Sconosciuto"
     
     info_text = f"""🎵✨ **{info['title']}** ✨🎵
@@ -1685,6 +1685,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         url = downloader.get_url_from_hash(url_hash)
         if not url:
             logger.error(f"URL not found for hash: {url_hash}. Available hashes: {list(downloader.url_cache.keys())}")
+            logger.error(f"Callback data: {data}")
+            logger.error(f"Parsed data: {parsed_data}")
             
             # Prova a estrarre l'URL dal messaggio come fallback
             try:
