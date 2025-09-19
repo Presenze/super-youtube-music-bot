@@ -1,2 +1,5 @@
-python-telegram-bot
+python-telegram-bot>=20.0
 psutil
+yt-dlp>=2024.1.0
+aiofiles
+mutagen

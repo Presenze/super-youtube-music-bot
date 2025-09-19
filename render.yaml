@@ -3,7 +3,7 @@ services:
     name: gigliotube-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements-ultra-minimal.txt && pip install yt-dlp
+    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirements-ultra-minimal.txt
     startCommand: python gigliotube.py
     envVars:
       - key: BOT_TOKEN
