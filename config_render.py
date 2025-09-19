@@ -1,12 +1,16 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Try to load dotenv if available, but don't fail if it's not
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("ℹ️  python-dotenv not available, using environment variables only")
 
 # Bot configuration
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 if not BOT_TOKEN:
-    # Fallback token for testing
+    # Fallback token for testing (replace with your actual token)
     BOT_TOKEN = "8237710386:AAF9MmADLR0PfihDtK8ZTmeDRi884MbV8HM"
     print("⚠️  Using fallback BOT_TOKEN. Please set BOT_TOKEN environment variable for production.")
 
