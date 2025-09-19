@@ -94,6 +94,8 @@ def create_callback_data(user_id, action, format_type=None, quality=None, url_ha
         return f"se_{user_id}"
     elif action == "language":
         return f"lg_{user_id}"
+    elif action == "search":
+        return f"sr_{user_id}"
     elif action == "set_lang":
         return f"sl_{user_id}_{format_type}"  # format_type = language
     return f"cb_{user_id}_{action}"
@@ -140,6 +142,8 @@ def parse_callback_data(data):
             return {"action": "settings", "user_id": int(parts[1])}
         elif parts[0] == "lg":
             return {"action": "language", "user_id": int(parts[1])}
+        elif parts[0] == "sr":
+            return {"action": "search", "user_id": int(parts[1])}
         elif parts[0] == "sl" and len(parts) >= 3:
             return {"action": "set_lang", "user_id": int(parts[1]), "language": parts[2]}
     except (ValueError, IndexError) as e:
@@ -403,8 +407,9 @@ class SuperYouTubeDownloader:
             try:
                 logger.info(f"Trying search config {i+1}/{len(configs)} for query: {query}")
                 with yt_dlp.YoutubeDL(config) as ydl:
-                    # Crea URL di ricerca YouTube
+                    # Usa il metodo di ricerca più affidabile
                     search_url = f"ytsearch{max_results}:{query}"
+                    logger.info(f"Searching with URL: {search_url}")
                     info = ydl.extract_info(search_url, download=False)
                     
                     if info and 'entries' in info:
