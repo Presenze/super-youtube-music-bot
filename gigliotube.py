@@ -235,11 +235,11 @@ class SuperYouTubeDownloader:
             'quiet': True,
             'no_warnings': True,
             'user_agent': random.choice(user_agents),
-            'extractor_retries': 5,
-            'fragment_retries': 5,
-            'retries': 5,
-            'sleep_interval': 2,
-            'max_sleep_interval': 8,
+            'extractor_retries': 3,
+            'fragment_retries': 3,
+            'retries': 3,
+            'sleep_interval': 0.5,
+            'max_sleep_interval': 2,
             'socket_timeout': 30,
             # Headers più realistici
             'http_headers': {
@@ -352,13 +352,13 @@ class SuperYouTubeDownloader:
                 'add_metadata': True,
                 # Anti-blocco YouTube avanzato
                 'user_agent': random.choice(user_agents),
-                'extractor_retries': 5,
-                'fragment_retries': 5,
-                'retries': 5,
+                'extractor_retries': 3,
+                'fragment_retries': 3,
+                'retries': 3,
                 'socket_timeout': 30,
                 'http_chunk_size': 10485760,  # 10MB chunks
-                'sleep_interval': 2,
-                'max_sleep_interval': 8,
+                'sleep_interval': 0.5,
+                'max_sleep_interval': 2,
                 # Headers più realistici per evitare rilevamento
                 'http_headers': {
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -1007,18 +1007,42 @@ def cleanup_old_files_sync(context: ContextTypes.DEFAULT_TYPE):
     try:
         cutoff_time = datetime.now() - timedelta(hours=24)
         
+        if not os.path.exists(DOWNLOAD_PATH):
+            return
+            
         for user_dir in os.listdir(DOWNLOAD_PATH):
             user_path = os.path.join(DOWNLOAD_PATH, user_dir)
             if os.path.isdir(user_path):
-                dir_time = datetime.fromtimestamp(os.path.getctime(user_path))
-                if dir_time < cutoff_time:
-                    shutil.rmtree(user_path, ignore_errors=True)
-                    logger.info(f"Cleaned up old files for user {user_dir}")
+                try:
+                    dir_time = datetime.fromtimestamp(os.path.getctime(user_path))
+                    if dir_time < cutoff_time:
+                        shutil.rmtree(user_path, ignore_errors=True)
+                        logger.info(f"Cleaned up old files for user {user_dir}")
+                except Exception as e:
+                    logger.warning(f"Error cleaning user {user_dir}: {e}")
+                    continue
     except Exception as e:
         logger.error(f"Cleanup error: {e}")
 
 def main():
     """Funzione principale per eseguire il bot premium"""
+    # Controlla se ci sono altri processi Python in esecuzione
+    try:
+        import psutil
+        python_processes = [p for p in psutil.process_iter(['pid', 'name', 'cmdline']) 
+                          if p.info['name'] == 'python.exe' and 'gigliotube.py' in ' '.join(p.info['cmdline'])]
+        if len(python_processes) > 1:
+            print("⚠️  WARNING: Multiple bot instances detected!")
+            print("🔄 Stopping other instances...")
+            for proc in python_processes[1:]:  # Keep the first one
+                try:
+                    proc.terminate()
+                    print(f"✅ Stopped process {proc.pid}")
+                except:
+                    pass
+    except ImportError:
+        print("ℹ️  psutil not available - skipping process check")
+    
     # Controlla FFmpeg all'avvio
     if not check_ffmpeg():
         print("❌ ERRORE: FFmpeg non installato!")
@@ -1048,8 +1072,8 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     application.add_handler(CallbackQueryHandler(handle_callback))
     
-    # Avvia job cleanup
-    application.job_queue.run_repeating(cleanup_old_files_sync, interval=3600, first=10)
+    # Avvia job cleanup (ogni 6 ore invece di 1 ora)
+    application.job_queue.run_repeating(cleanup_old_files_sync, interval=21600, first=60)
     
     # Esegui il bot
     logger.info("Starting GiglioTube - Super YouTube Music Download Bot...")
