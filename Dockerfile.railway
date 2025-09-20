@@ -1,0 +1,23 @@
+# Dockerfile per Railway - senza healthcheck
+FROM python:3.12.7-slim
+
+# Installa FFmpeg
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Imposta directory di lavoro
+WORKDIR /app
+
+# Copia requirements
+COPY requirements-minimal.txt .
+
+# Installa dipendenze
+RUN pip install --no-cache-dir -r requirements-minimal.txt
+
+# Copia tutto il codice
+COPY . .
+
+# Crea directory downloads
+RUN mkdir -p downloads
+
+# Comando di avvio
+CMD ["python", "start_railway.py"]
