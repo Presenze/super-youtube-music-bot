@@ -1,8 +1,12 @@
-# Dockerfile per Railway - senza healthcheck
+# Dockerfile per Railway - SISTEMA ULTRA-ROBUSTO
 FROM python:3.12.7-slim
 
-# Installa FFmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+# Installa FFmpeg e dipendenze aggiuntive
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Imposta directory di lavoro
 WORKDIR /app
@@ -16,8 +20,18 @@ RUN pip install --no-cache-dir -r requirements-minimal.txt
 # Copia tutto il codice
 COPY . .
 
-# Crea directory downloads
-RUN mkdir -p downloads
+# Crea directory necessarie
+RUN mkdir -p downloads data
 
-# Comando di avvio
+# Variabili ambiente per sistema ultra-robusto
+ENV ULTRA_ROBUST_MODE=true
+ENV MAX_DOWNLOAD_RETRIES=10
+ENV MAX_SEARCH_RETRIES=5
+ENV ENABLE_COOKIES_AUTO=true
+ENV ENABLE_USER_AGENT_ROTATION=true
+
+# Espone porta per healthcheck
+EXPOSE 8000
+
+# Comando di avvio con sistema ultra-robusto
 CMD ["python", "start_railway.py"]

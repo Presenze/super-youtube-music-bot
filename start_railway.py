@@ -38,13 +38,13 @@ def main():
     os.environ['RAILWAY_ENVIRONMENT'] = 'true'
     os.environ['PLATFORM'] = 'railway'
     
-    # Check if we're on Railway
-    if os.getenv('RAILWAY'):
-        logger.info("✅ Running on Railway platform")
-        # Avvia healthcheck server per Railway
-        start_healthcheck()
-    else:
-        logger.info("ℹ️  Running locally")
+# Check if we're on Railway
+if os.getenv('RAILWAY'):
+    logger.info("✅ Running on Railway platform with ULTRA-ROBUST system")
+    # Avvia healthcheck server per Railway
+    start_healthcheck()
+else:
+    logger.info("ℹ️  Running locally")
     
     # Import and run the bot
     try:
