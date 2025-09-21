@@ -1,0 +1,24 @@
+# Global code owners
+* @domenicogigliotti
+
+# Bot files
+gigliotube.py @domenicogigliotti
+config.py @domenicogigliotti
+requirements.txt @domenicogigliotti
+
+# Documentation
+README.md @domenicogigliotti
+CONTRIBUTING.md @domenicogigliotti
+CHANGELOG.md @domenicogigliotti
+
+# GitHub configuration
+.github/ @domenicogigliotti
+
+# Scripts
+*.bat @domenicogigliotti
+*.sh @domenicogigliotti
+
+# Configuration files
+config_example.py @domenicogigliotti
+.gitignore @domenicogigliotti
+LICENSE @domenicogigliotti

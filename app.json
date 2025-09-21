@@ -1,0 +1,50 @@
+{
+  "name": "GiglioTube Bot",
+  "description": "Super YouTube Music Download Bot - Il downloader audio YouTube più VELOCE e POTENTE!",
+  "repository": "https://github.com/Presenze/super-youtube-music-bot",
+  "logo": "https://raw.githubusercontent.com/Presenze/super-youtube-music-bot/main/logo.png",
+  "keywords": [
+    "telegram",
+    "bot",
+    "youtube",
+    "music",
+    "downloader",
+    "mp3",
+    "audio",
+    "python"
+  ],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Token del bot Telegram ottenuto da @BotFather",
+      "required": true
+    },
+    "PYTHONUNBUFFERED": {
+      "description": "Python unbuffered output",
+      "value": "1"
+    },
+    "TZ": {
+      "description": "Timezone",
+      "value": "Europe/Rome"
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini"
+    }
+  ]
+}
