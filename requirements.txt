@@ -1,4 +1,4 @@
-python-telegram-bot>=20.0,<22.0
+python-telegram-bot>=20.0,<23.0
 yt-dlp>=2024.1.0
 python-dotenv>=1.0.0
 aiofiles>=23.0.0
